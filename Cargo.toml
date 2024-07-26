@@ -1,0 +1,23 @@
+[package]
+name = "ytt"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+youtube_dl = "0.10.0" # For fetching YouTube video
+# ffmpeg-next = { version = "7.0.2", features = [
+#     "build",
+# ] } # For decoding video frames
+video-rs = { version = "0.8", features = ["ndarray"] }
+termion = "4.0.2"                                      # For terminal handling
+image = "0.25.1"                                       # For image processing
+tokio = { version = "1.38.0", features = ["full"] }
+ndarray = "0.15.6"
+anyhow = "1.0.86"
+colored = "2.1.0"
+fast_image_resize = { version = "4.1.0", features = ["image"] }
+rayon = "1.10.0"
+clap = { version = "4.5.11", features = ["derive"] }
+serde = "1.0.204"
