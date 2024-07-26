@@ -10,12 +10,15 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::time::Instant;
 use video_rs::{DecoderBuilder, Location, Options, Resize, Url};
 
-use crate::utils::ffprobe::{ffprobe_get_duration, ffprobe_get_fps};
+use crate::utils::args::HardwareAcceleration;
+use crate::utils::ffprobe::{
+    ffmpeg_initialize, ffprobe_get_duration, ffprobe_get_fps, DurationType,
+};
 use crate::utils::get_grey::get_grey;
 use crate::utils::rgb_distance::rgb_distance;
 use crate::utils::size::size;
 use crate::utils::youtube::get_youtube_video_from_url;
-use crate::{CharacterMode, HardwareAcceleration, ScaleMode};
+use crate::{CharacterMode, ScaleMode};
 
 pub type Frame = ArrayBase<OwnedRepr<u8>, Dim<[usize; 3]>>;
 
@@ -42,12 +45,11 @@ impl std::str::FromStr for VideoUrl {
             if s.contains("youtube.com") || s.contains("youtu.be") {
                 return Ok(Self::YoutubeUrl(s.to_string()));
             }
+
             return Ok(Self::DirectUrl(s.to_string()));
-        } else if s.ends_with(".mp4") || s.ends_with(".mkv") || s.ends_with(".avi") {
-            return Ok(Self::File(s.to_string()));
         }
 
-        Err("Invalid input")
+        return Ok(Self::File(s.to_string()));
     }
 }
 
@@ -55,7 +57,9 @@ impl Video {
     pub async fn fetch_video(
         &self,
         hw_accel: HardwareAcceleration,
-    ) -> anyhow::Result<(UnboundedReceiver<(Frame, u64)>, String, u64)> {
+    ) -> anyhow::Result<(UnboundedReceiver<(Frame, DurationType)>, String, u64)> {
+        ffmpeg_initialize()?;
+
         let video_type = self.url.parse::<VideoUrl>().unwrap();
 
         let (video_url, fps, title) = match video_type {
@@ -202,7 +206,6 @@ impl Video {
 
                     output.push_str(&format!(
                         "{}{}",
-                        // cursor::Goto((x + 1) as u16, (y / 2 + 1) as u16), // Corrected cursor positioning
                         cursor::Goto(
                             (x + x_offset) as u16,
                             ((y / step_size + 1) + y_offset) as u16

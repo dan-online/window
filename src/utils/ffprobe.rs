@@ -3,9 +3,10 @@ use std::ffi::CString;
 use std::ptr;
 use video_rs::ffmpeg::ffi::*;
 
-fn ffmpeg_initialize() -> Result<()> {
+pub fn ffmpeg_initialize() -> Result<()> {
     unsafe {
         avdevice_register_all();
+        av_log_set_level(AV_LOG_QUIET);
     }
     Ok(())
 }
@@ -50,7 +51,13 @@ pub fn ffprobe_get_fps(url: &str) -> Result<u64> {
     }
 }
 
-pub async fn ffprobe_get_duration(url: &str) -> Result<u64> {
+#[derive(Debug, Clone, Copy)]
+pub enum DurationType {
+    Fixed(u64),
+    Live,
+}
+
+pub async fn ffprobe_get_duration(url: &str) -> Result<DurationType> {
     ffmpeg_initialize()?;
 
     let c_url = CString::new(url)?;
@@ -75,9 +82,11 @@ pub async fn ffprobe_get_duration(url: &str) -> Result<u64> {
         avformat_close_input(&mut format_context);
 
         if duration != AV_NOPTS_VALUE {
-            Ok((duration as f64 / AV_TIME_BASE as f64) as u64)
+            Ok(DurationType::Fixed(
+                (duration as f64 / AV_TIME_BASE as f64) as u64,
+            ))
         } else {
-            Err(anyhow::anyhow!("Failed to get duration"))
+            Ok(DurationType::Live)
         }
     }
 }

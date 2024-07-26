@@ -8,8 +8,6 @@ pub fn get_youtube_video_from_url(url: &str) -> anyhow::Result<(String, u64, Str
         .ok_or("No video found")
         .map_err(|e| anyhow::anyhow!(e))?;
 
-    println!("{:?}", output.title);
-
     let title = output
         .title
         .ok_or("No title found")
