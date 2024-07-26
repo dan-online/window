@@ -31,7 +31,15 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Install dependencies
-        run: sudo apt update -y && sudo apt install -y clang
+        run: sudo apt update -y && sudo apt install -y libavcodec-dev \
+          libavdevice-dev \
+          libavfilter-dev \
+          libavformat-dev \
+          libavresample-dev \
+          libavutil-dev \
+          libpostproc-dev \
+          libswresample-dev \
+          libswscale-dev 
       - name: Build
         run: cargo build --release
       - name: Format Check
