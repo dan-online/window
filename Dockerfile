@@ -16,7 +16,7 @@ RUN apt install -y clang libavcodec-dev libavdevice-dev libavfilter-dev libavfor
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Build window
-FROM rust:1.79.0 as builder
+FROM rust as builder
 
 WORKDIR /usr/src/
 RUN USER=root cargo new --bin window
