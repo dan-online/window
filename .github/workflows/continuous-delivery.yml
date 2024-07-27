@@ -116,6 +116,9 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Setup VCPKG
+        uses: lukka/run-vcpkg@v11
+
       - name: Build release binary
         uses: actions-rs/cargo@v1
         with:
