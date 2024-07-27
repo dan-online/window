@@ -32,6 +32,7 @@ COPY src src
 COPY --from=cacher /app/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
 RUN rm -rf target/release/window*
+RUN apt update -y
 RUN apt install -y clang libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev
 RUN cargo build --locked --release
 
