@@ -118,10 +118,10 @@ jobs:
 
       # - name: Setup VCPKG
       #   uses: lukka/run-vcpkg@v11
-      
+
       - name: Install dependencies
         if: matrix.settings.os == 'ubuntu-24.04'
-        run: sudo apt update -y && sudo apt install -y musl-tools clang libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev
+        run: sudo apt update -y && sudo apt install -y musl-tools clang libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev build-essential g++
 
 
       - name: Build release binary
