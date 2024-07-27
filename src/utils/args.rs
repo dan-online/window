@@ -86,7 +86,7 @@ pub struct Args {
     #[clap(short, long, default_value = "blocks")]
     pub mode: Option<CharacterMode>,
 
-    #[clap(short, long)]
+    #[clap(short, long, default_value = "fit")]
     pub scale: Option<ScaleMode>,
 
     #[clap(short, long, default_value = "true")]

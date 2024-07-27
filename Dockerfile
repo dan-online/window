@@ -9,10 +9,10 @@ ADD https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp /usr/local/
 
 RUN chmod a+rx /usr/local/bin/yt-dlp
 
-# ssl fix for yt-dlp
-# RUN mkdir -p /etc/ssl/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt
+# ssl fix for yt-dlp, there's probably a better way to do this
 RUN python3 -m pip install --no-cache-dir --upgrade certifi --break-system-packages
 
+# for now, we'll just copy the binary, .framerate is only in ubuntu 24 with libavformat
 COPY target/release/window /usr/local/bin/window
 
 ENTRYPOINT ["/usr/local/bin/window"]
