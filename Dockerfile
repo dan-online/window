@@ -1,8 +1,6 @@
 # Run application
 FROM ubuntu:noble
 
-WORKDIR /build
-
 RUN apt update -y && apt install -y python3 python3-pip libssl-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 ADD https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp /usr/local/bin/yt-dlp
