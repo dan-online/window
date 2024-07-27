@@ -49,7 +49,7 @@ impl std::str::FromStr for VideoUrl {
             return Ok(Self::DirectUrl(s.to_string()));
         }
 
-        return Ok(Self::File(s.to_string()));
+        Ok(Self::File(s.to_string()))
     }
 }
 

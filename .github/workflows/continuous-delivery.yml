@@ -1,4 +1,4 @@
-name: CI
+name: Continuous Delivery
 
 on:
   push:
@@ -6,7 +6,8 @@ on:
       - main
 
 jobs:
-  test:
+  build:
+    name: Build and Push
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Project
