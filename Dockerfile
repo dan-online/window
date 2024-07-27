@@ -12,7 +12,7 @@ WORKDIR app
 RUN cargo install cargo-chef
 COPY --from=planner /app/recipe.json recipe.json
 RUN apt update -y
-RUN apt install -y pkg-config clang libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libpostproc-dev libswresample-dev libswscale-dev libavutil-dev
+RUN apt install -y clang libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Build ytt
