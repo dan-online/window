@@ -1641,6 +1641,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53a85b86a771b1c87058196170769dd264f66c0782acf1ae6cc51bfd64b39082"
 
 [[package]]
+name = "window"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colored",
+ "image",
+ "ndarray",
+ "serde",
+ "termion",
+ "tokio",
+ "video-rs",
+ "youtube_dl",
+]
+
+[[package]]
 name = "windows-sys"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1798,22 +1814,6 @@ dependencies = [
  "serde",
  "serde_json",
  "wait-timeout",
-]
-
-[[package]]
-name = "ytt"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "colored",
- "image",
- "ndarray",
- "serde",
- "termion",
- "tokio",
- "video-rs",
- "youtube_dl",
 ]
 
 [[package]]
