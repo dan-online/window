@@ -121,16 +121,18 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: vcpkg build
+        if: matrix.settings.os == 'windows-2019'
         uses: johnwason/vcpkg-action@v6
         id: vcpkg
         with:
           pkgs: ffmpeg
           triplet: x64-windows
+          token: ${{ github.token }}
+          github-binarycache: true
 
       - name: Install dependencies
         if: matrix.settings.os == 'ubuntu-24.04'
         run: sudo apt update -y && sudo apt install -y clang libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev # build-essential g++ gcc
-
 
       - name: Build release binary
         uses: actions-rs/cargo@v1
@@ -144,14 +146,14 @@ jobs:
         uses: actions/upload-artifact@v2
         if: matrix.settings.os == 'ubuntu-24.04'
         with:
-          name: ${{ matrix.settings.os }}-${{ matrix.settings.target }}-binary
+          name: window-${{ matrix.settings.os }}-${{ matrix.settings.target }}
           path: target/${{ matrix.settings.target }}/release/window
       
       - name: Upload binary
         uses: actions/upload-artifact@v2
         if: matrix.settings.os == 'windows-2019'
         with:
-          name: ${{ matrix.settings.os }}-${{ matrix.settings.target }}-binary.exe
+          name: window-${{ matrix.settings.os }}-${{ matrix.settings.target }}
           path: target/${{ matrix.settings.target }}/release/window.exe
       
   # create-release:
