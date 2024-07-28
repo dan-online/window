@@ -116,8 +116,13 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      # - name: Setup VCPKG
-      #   uses: lukka/run-vcpkg@v11
+      - name: Setup VCPKG
+        if: matrix.settings.os == 'windows-2019'
+        uses: lukka/run-vcpkg@v11
+
+      - name: Install dependencies
+        if: matrix.settings.os == 'windows-2019'
+        run: vcpkg install ffmpeg --triplet x64-windows
 
       - name: Install dependencies
         if: matrix.settings.os == 'ubuntu-24.04'
@@ -130,3 +135,33 @@ jobs:
           use-cross: ${{ matrix.settings.cross }}
           command: build
           args: --release --locked --target ${{ matrix.settings.target }}
+
+      # add binary as artifact
+      - name: Upload binary
+        uses: actions/upload-artifact@v2
+        if: matrix.settings.os == 'ubuntu-24.04'
+        with:
+          name: ${{ matrix.settings.os }}-${{ matrix.settings.target }}-binary
+          path: target/${{ matrix.settings.target }}/release/window
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v2
+        if: matrix.settings.os == 'windows-2019'
+        with:
+          name: ${{ matrix.settings.os }}-${{ matrix.settings.target }}-binary.exe
+          path: target/${{ matrix.settings.target }}/release/window.exe
+      
+  # create-release:
+  #   name: Create Release
+  #   needs: [binary]
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - name: Download binary
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: ubuntu-24.04-x86_64-unknown-linux-gnu-binary
+  #     - name: Download binary
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: windows-2019-x86_64-pc-windows-msvc-binary.exe
+
