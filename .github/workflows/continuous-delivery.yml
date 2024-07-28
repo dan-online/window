@@ -143,14 +143,14 @@ jobs:
 
       # add binary as artifact
       - name: Upload binary
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: matrix.settings.os == 'ubuntu-24.04'
         with:
           name: window-${{ matrix.settings.os }}-${{ matrix.settings.target }}
           path: target/${{ matrix.settings.target }}/release/window
       
       - name: Upload binary
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: matrix.settings.os == 'windows-2019'
         with:
           name: window-${{ matrix.settings.os }}-${{ matrix.settings.target }}
