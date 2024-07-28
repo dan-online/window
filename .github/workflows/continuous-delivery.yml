@@ -116,13 +116,16 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Setup VCPKG
+      - name: Install cmake
         if: matrix.settings.os == 'windows-2019'
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/get-cmake@latest
 
-      - name: Install dependencies
-        if: matrix.settings.os == 'windows-2019'
-        run: vcpkg install ffmpeg --triplet x64-windows
+      - name: vcpkg build
+        uses: johnwason/vcpkg-action@v6
+        id: vcpkg
+        with:
+          pkgs: ffmpeg
+          triplet: x64-windows
 
       - name: Install dependencies
         if: matrix.settings.os == 'ubuntu-24.04'
