@@ -135,11 +135,6 @@ jobs:
           with:
             name: window-windows-2019-x86_64-pc-windows-msvc
 
-        - name: Check
-          run: |
-            ls -la
-            ls -la target/release
-
         - name: Create Release
           id: create_release
           uses: softprops/action-gh-release@v2
