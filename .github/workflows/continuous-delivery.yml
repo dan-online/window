@@ -48,6 +48,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Update Cargo.toml version
+              shell: bash
               run: |
                 # Extract version from the tag
                 VERSION=${GITHUB_REF#refs/tags/v}
