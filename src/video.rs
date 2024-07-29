@@ -1,12 +1,14 @@
 use anyhow::Context;
 use crossterm::cursor::MoveTo;
-use crossterm::style::{Color, Print, SetBackgroundColor, SetForegroundColor};
+use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor};
+use crossterm::terminal::{Clear, ClearType};
 use crossterm::{queue, terminal};
 use image::{ImageBuffer, Rgb};
 use ndarray::{ArrayBase, Dim, OwnedRepr};
 use std::collections::HashMap;
 use std::io::{self};
 use std::path::PathBuf;
+use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::time::Instant;
 use video_rs::{DecoderBuilder, Location, Options, Resize, Url};
@@ -15,6 +17,7 @@ use crate::utils::args::HardwareAcceleration;
 use crate::utils::ffprobe::{
     ffmpeg_initialize, ffprobe_get_duration, ffprobe_get_fps, DurationType,
 };
+use crate::utils::format_time::format_time;
 use crate::utils::get_grey::get_grey;
 use crate::utils::rgb_distance::rgb_distance;
 use crate::utils::youtube::get_youtube_video_from_url;
@@ -271,24 +274,106 @@ impl Video {
         Ok(())
     }
 
-    pub fn fps(&mut self) -> f64 {
-        let mut frame_count = self.frame_times.len();
+    pub fn print_footer_to_terminal(
+        &self,
+        stdout: &mut io::Stdout,
+        fps: u64,
+        render_fps: f64,
+        current_time: f32,
+        duration: DurationType,
+        elapsed: Duration,
+        time_since_start: Duration,
+    ) -> anyhow::Result<()> {
+        let (width, height) = terminal::size().unwrap();
 
-        if frame_count > 10 {
-            self.frame_times = self.frame_times[frame_count - 10..].to_vec();
+        queue!(
+            stdout,
+            MoveTo(0, height),
+            ResetColor,
+            Clear(ClearType::CurrentLine)
+        )
+        .unwrap();
 
-            frame_count = self.frame_times.len();
-        }
+        let frame_time = format!(
+            "{:>width$}ms",
+            format!("{:.2}", elapsed.as_secs_f64() * 1000.0),
+            // over 1000ms is unlikely, and if so then they have other problems
+            width = 6
+        );
 
-        if frame_count < 5 {
-            return 0.0;
-        }
+        let fps_text = format!("FPS: {:.0}/{}", render_fps, fps);
 
-        let start = self.frame_times[0];
-        let end = self.frame_times[frame_count - 1];
+        let (current_time_str, duration_str, progress_bar) = match duration {
+            DurationType::Fixed(duration) => {
+                let duration = duration as f32;
+                let progress = current_time / duration;
 
-        let elapsed = end - start;
+                let current_time_str = format_time(current_time as u64);
+                let duration_str = format_time(duration as u64);
 
-        frame_count as f64 / elapsed.as_secs_f64()
+                let space = width as usize
+                    - current_time_str.len()
+                    - duration_str.len()
+                    - fps_text.len()
+                    - frame_time.len()
+                    - 10;
+
+                let watched_space = (progress * (space as f32)) as usize;
+                let remaining_space = (space - watched_space) as usize;
+
+                let progress_bar = format!(
+                    "[{}{}]",
+                    "=".repeat(watched_space),
+                    " ".repeat(remaining_space)
+                );
+
+                (current_time_str, duration_str, progress_bar)
+            }
+            DurationType::Live => {
+                let frame_time = format!(
+                    // pad left with spaces
+                    "{:>width$}ms",
+                    format!("{:.2}", elapsed.as_secs_f64() * 1000.0),
+                    // over 1000ms is unlikely, and if so then they have other problems
+                    width = 6
+                );
+
+                let current_time_str = format_time(current_time as u64);
+
+                let duration_str = "Live".to_string();
+
+                let bar = "<=====>";
+
+                let space = width as usize
+                    - current_time_str.len()
+                    - duration_str.len()
+                    - fps_text.len()
+                    - frame_time.len()
+                    - bar.len()
+                    - 9;
+
+                let watched_space = (time_since_start.as_secs_f32() * 10.0 % space as f32) as usize;
+
+                let remaining_space = space.saturating_sub(watched_space);
+
+                let progress_bar = format!(
+                    "[{}{}{}]",
+                    " ".repeat(watched_space),
+                    bar,
+                    " ".repeat(remaining_space)
+                );
+
+                (current_time_str, duration_str, progress_bar)
+            }
+        };
+
+        queue!(
+            stdout,
+            Print(format!(
+                " {}/{} {} {} {} ",
+                current_time_str, duration_str, progress_bar, fps_text, frame_time
+            ))
+        )
+        .map_err(|e| anyhow::anyhow!(e))
     }
 }

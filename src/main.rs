@@ -2,7 +2,7 @@ use clap::Parser;
 use crossterm::{
     cursor::{self, MoveTo},
     execute, queue,
-    style::{Print, ResetColor},
+    style::{self, Print, ResetColor},
     terminal::{self, Clear, ClearType},
 };
 use std::io::{self, Write};
@@ -14,7 +14,6 @@ use tokio::{
 use utils::{
     args::{Args, CharacterMode, ScaleMode},
     ffprobe::DurationType,
-    format_time::format_time,
 };
 use video::{Frame, Video};
 
@@ -33,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     // Parse command line arguments
     let args = Args::parse();
 
-    // Initialize video with parameters
+    // Initialize "video" with parameters
     let video = Video {
         url: args.url,
         frame_times: vec![],
@@ -52,15 +51,10 @@ async fn main() -> anyhow::Result<()> {
         .unwrap();
     let (render_tx, render_recv) = unbounded_channel::<(Frame, DurationType)>();
 
-    // Clear the terminal screen and hide the cursor
-    // print!("{}", cursor::Hide);
-    // print!("{}", clear::All);
     let mut stdout = io::stdout();
 
-    execute!(stdout, terminal::Clear(terminal::ClearType::All))?;
+    execute!(stdout, Clear(ClearType::All))?;
     execute!(stdout, cursor::Hide)?;
-
-    stdout.flush().unwrap();
 
     // Spawn a task to handle signal input
     tokio::spawn(handle_signal_input());
@@ -73,18 +67,22 @@ async fn main() -> anyhow::Result<()> {
         render_tx.send(data).unwrap();
     }
 
-    handle_render.await?
+    let _ = handle_render.await?;
+
+    Ok(())
 }
 
 fn end() {
     print!("{}", cursor::Show);
+    print!("{}", style::ResetColor);
+    print!("{}", MoveTo(0, 0));
+    print!("{}", Clear(ClearType::All));
     exit(0);
 }
 
 // Handle signal to quit the application
 async fn handle_signal_input() {
     tokio::signal::ctrl_c().await.unwrap();
-    println!("\n Exit signal received, quitting...");
     end();
 }
 
@@ -142,8 +140,6 @@ async fn handle_render(
     while let Some((frame, duration)) = render_recv.recv().await {
         frames_seen += 1;
 
-        let (wid, height) = terminal::size().unwrap();
-
         let start = Instant::now();
 
         video.print_frame_to_terminal(&frame, &mut stdout)?;
@@ -151,7 +147,7 @@ async fn handle_render(
         let elapsed = start.elapsed();
         let sleep_duration = std_frame_time.saturating_sub(elapsed);
 
-        // Wait if necessary to maintain the target FPS
+        // Wait if necessary to maintain the target FPS with a preloaded video
         if video.cap_framerate {
             tokio::time::sleep(sleep_duration).await;
         }
@@ -169,96 +165,15 @@ async fn handle_render(
         let current_time = frames_seen as f32 / fps as f32;
 
         if !video.fullscreen {
-            queue!(
-                stdout,
-                MoveTo(0, height),
-                ResetColor,
-                Clear(ClearType::CurrentLine)
-            )
-            .unwrap();
-
-            let frame_time = format!(
-                "{:>width$}ms",
-                format!("{:.2}", elapsed.as_secs_f64() * 1000.0),
-                // over 1000ms is unlikely, and if so then they have other problems
-                width = 6
-            );
-
-            let fps_text = format!("FPS: {:.0}/{}", render_fps, fps);
-
-            let (current_time_str, duration_str, progress_bar) = match duration {
-                DurationType::Fixed(duration) => {
-                    let duration = duration as f32;
-                    let progress = current_time / duration;
-
-                    let current_time_str = format_time(current_time as u64);
-                    let duration_str = format_time(duration as u64);
-
-                    let space = wid as usize
-                        - current_time_str.len()
-                        - duration_str.len()
-                        - fps_text.len()
-                        - frame_time.len()
-                        - 10;
-
-                    let watched_space = (progress * (space as f32)) as usize;
-                    let remaining_space = (space - watched_space) as usize;
-
-                    let progress_bar = format!(
-                        "[{}{}]",
-                        "=".repeat(watched_space),
-                        " ".repeat(remaining_space)
-                    );
-
-                    (current_time_str, duration_str, progress_bar)
-                }
-                DurationType::Live => {
-                    let frame_time = format!(
-                        // pad left with spaces
-                        "{:>width$}ms",
-                        format!("{:.2}", elapsed.as_secs_f64() * 1000.0),
-                        // over 1000ms is unlikely, and if so then they have other problems
-                        width = 6
-                    );
-
-                    let current_time_str = format_time(current_time as u64);
-
-                    let duration_str = "Live".to_string();
-
-                    let bar = "<=====>";
-
-                    let space = wid as usize
-                        - current_time_str.len()
-                        - duration_str.len()
-                        - fps_text.len()
-                        - frame_time.len()
-                        - bar.len()
-                        - 9;
-
-                    let watched_space =
-                        ((start - started).as_secs_f32() * 10.0 % space as f32) as usize;
-
-                    let remaining_space = space.saturating_sub(watched_space);
-
-                    let progress_bar = format!(
-                        "[{}{}{}]",
-                        " ".repeat(watched_space),
-                        bar,
-                        " ".repeat(remaining_space)
-                    );
-
-                    (current_time_str, duration_str, progress_bar)
-                }
-            };
-
-            queue!(
-                stdout,
-                Print(format!(
-                    " {}/{} {} {} {} ",
-                    current_time_str, duration_str, progress_bar, fps_text, frame_time
-                ))
-            )
-            .unwrap();
+            video.print_footer_to_terminal(
+                &mut stdout,
+                fps,
+                render_fps,
+                current_time,
+                duration,
+                elapsed,
+                start - started,
+            )?;
         }
 
         stdout.flush().unwrap();
