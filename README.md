@@ -39,12 +39,11 @@ Window is a terminal-based video player that allows you to watch videos directly
 ## TODO
 
 - [ ] Error handling
-  - Currently I just propagate errors with anyhow and sometimes with context or at least a good error message
-- [ ] Full screen mode
+- [x] Full screen mode
 - [ ] Tests
 - [ ] Audio???
 - [ ] Subtitles???
-- [ ] More accurate text rendering
+- [ ] Better color accuracy
 
 ## Getting Started
 
@@ -52,7 +51,7 @@ Window is a terminal-based video player that allows you to watch videos directly
 
 ```bash
 $ docker run -it --rm danonline/window:latest --help
-$ docker run -it --rm danonline/window:latest https://www.youtube.com/watch?v=dQw4w9WgXcQ
+$ docker run -it --rm danonline/window:latest "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
 ### Bin
@@ -73,8 +72,6 @@ Project Link: [https://github.com/dan-online/window](https://github.com/dan-onli
 
 The information and software contained herein are provided solely for educational purposes. I am not responsible for any misuse of this software for copyright infringement.
 
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [contributors-shield]: https://img.shields.io/github/contributors/dan-online/window.svg?style=for-the-badge
 [contributors-url]: https://github.com/dan-online/window/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/dan-online/window.svg?style=for-the-badge
