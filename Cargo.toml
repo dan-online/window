@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 youtube_dl = "0.10.0"                                  # For fetching YouTube video
 video-rs = { version = "0.8", features = ["ndarray"] } # For ffmpeg decoding
-termion = "4.0.2"                                      # For terminal handling
 image = "0.25.1"                                       # For image processing
 tokio = { version = "1.38.0", features = ["full"] }
 ndarray = "0.15.6"
@@ -14,3 +13,4 @@ anyhow = "1.0.86"
 colored = "2.1.0"
 clap = { version = "4.5.11", features = ["derive"] }
 serde = "1.0.204"
+crossterm = "0.27.0"

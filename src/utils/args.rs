@@ -9,6 +9,7 @@ pub enum CharacterMode {
     Blocks,
     Dots,
     Ascii,
+    AsciiExtended,
     Numbers,
     Unicode,
 }
@@ -76,12 +77,12 @@ impl HardwareAcceleration {
 }
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, author, about, long_about = None)]
 pub struct Args {
     pub url: String,
 
     #[clap(short, long, default_value = "2")]
-    pub clear_distance: Option<u16>,
+    pub pixel_clear_distance: Option<u16>,
 
     #[clap(short, long, default_value = "blocks")]
     pub mode: Option<CharacterMode>,
@@ -90,11 +91,11 @@ pub struct Args {
     pub scale: Option<ScaleMode>,
 
     #[clap(short, long, default_value = "true")]
-    pub frame_cap: Option<bool>,
+    pub cap_framerate: Option<bool>,
 
     #[clap(long, default_value = "none")]
     pub hw_accel: Option<HardwareAcceleration>,
 
-    #[clap(short, long, default_value = "false")]
-    pub fullscreen: Option<bool>,
+    #[clap(long, short, action)]
+    pub fullscreen: bool,
 }

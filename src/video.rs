@@ -1,11 +1,12 @@
 use anyhow::Context;
-use colored::Colorize;
+use crossterm::cursor::MoveTo;
+use crossterm::style::{Color, Print, SetBackgroundColor, SetForegroundColor};
+use crossterm::{queue, terminal};
 use image::{ImageBuffer, Rgb};
 use ndarray::{ArrayBase, Dim, OwnedRepr};
 use std::collections::HashMap;
-use std::io::{self, Write};
+use std::io::{self};
 use std::path::PathBuf;
-use termion::{cursor, terminal_size};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::time::Instant;
 use video_rs::{DecoderBuilder, Location, Options, Resize, Url};
@@ -16,7 +17,6 @@ use crate::utils::ffprobe::{
 };
 use crate::utils::get_grey::get_grey;
 use crate::utils::rgb_distance::rgb_distance;
-use crate::utils::size::size;
 use crate::utils::youtube::get_youtube_video_from_url;
 use crate::{CharacterMode, ScaleMode};
 
@@ -27,8 +27,10 @@ pub struct Video {
     pub frame_times: Vec<Instant>,
     pub last_frame: Option<ImageBuffer<Rgb<u8>, Vec<u8>>>,
     pub character_mode: CharacterMode,
-    pub clear_distance: u16,
+    pub pixel_clear_distance: u16,
     pub scale_mode: ScaleMode,
+    pub cap_framerate: bool,
+    pub fullscreen: bool,
 }
 
 enum VideoUrl {
@@ -51,6 +53,12 @@ impl std::str::FromStr for VideoUrl {
 
         Ok(Self::File(s.to_string()))
     }
+}
+
+fn get_step_size() -> u32 {
+    let (width, height) = terminal::size().unwrap();
+
+    return (width / (height - 2)) as u32 - 2;
 }
 
 impl Video {
@@ -89,7 +97,7 @@ impl Video {
             }
         };
 
-        let ((width, height), _) = size();
+        let (width, height) = terminal::size().unwrap();
 
         let mut opts: HashMap<String, String> = HashMap::new();
 
@@ -100,10 +108,19 @@ impl Video {
 
         let duration = ffprobe_get_duration(&video_url.to_string()).await?;
 
+        let step_size = get_step_size();
+
+        let mut render_height = height as u32 * step_size;
+        let render_width = width as u32;
+
+        if !self.fullscreen {
+            render_height -= 8;
+        }
+
         let mut decoder = DecoderBuilder::new(video_url)
             .with_resize(match self.scale_mode {
-                ScaleMode::Fit => Resize::Fit(width as u32, height as u32 * 2 - 8),
-                ScaleMode::Stretch => Resize::Exact(width as u32, height as u32 * 2 - 8),
+                ScaleMode::Fit => Resize::Fit(render_width, render_height),
+                ScaleMode::Stretch => Resize::Exact(render_width, render_height),
             })
             .with_options(&options);
 
@@ -124,7 +141,11 @@ impl Video {
         Ok((frame_rx, title, fps))
     }
 
-    pub fn print_frame_to_terminal(&mut self, frame: &Frame, stdout: &mut io::Stdout) {
+    pub fn print_frame_to_terminal(
+        &mut self,
+        frame: &Frame,
+        stdout: &mut io::Stdout,
+    ) -> anyhow::Result<()> {
         let frame_height = frame.shape()[0];
         let frame_width = frame.shape()[1];
 
@@ -135,11 +156,9 @@ impl Video {
         )
         .unwrap();
 
-        let mut output = String::new();
-        let step_size: u32 = 2; // Adjusted step_size for better visual consistency
+        let step_size: u32 = get_step_size();
 
-        // if frame width is smaller than terminal width, center the frame
-        let (terminal_width, _) = terminal_size().unwrap();
+        let (terminal_width, _) = terminal::size().unwrap();
 
         let x_offset: u32 = if frame_width < terminal_width as usize {
             (terminal_width as u32 - frame_width as u32) / 2
@@ -147,7 +166,19 @@ impl Video {
             0
         };
 
-        let y_offset: u32 = 2;
+        let y_offset: u32 = if !self.fullscreen { 2 } else { 0 };
+
+        let background = match self.character_mode {
+            CharacterMode::Blocks | CharacterMode::Dots => None,
+            _ => None,
+        };
+
+        if let Some(background) = background {
+            queue!(stdout, SetBackgroundColor(background))?;
+        }
+
+        let mut last_bg: Option<Color> = None;
+        let mut last_fg: Option<Color> = None;
 
         for y in (0..img.height()).step_by(step_size as usize) {
             for x in 0..img.width() {
@@ -161,65 +192,83 @@ impl Video {
                     let last_r = last_pixel[0];
                     let last_g = last_pixel[1];
                     let last_b = last_pixel[2];
-                    rgb_distance((r, g, b), (last_r, last_g, last_b)) >= self.clear_distance as f32
+                    rgb_distance((r, g, b), (last_r, last_g, last_b))
+                        >= self.pixel_clear_distance as f32
                 } else {
                     true
                 };
 
                 if needs_update {
                     let grey = get_grey(r, g, b);
-                    let ascii = match self.character_mode {
-                        CharacterMode::Blocks => "█".truecolor(r, g, b).to_string(),
-                        CharacterMode::Dots => "•".on_black().truecolor(r, g, b).to_string(),
+
+                    let ramp: Vec<u32> = match self.character_mode {
+                        // CharacterMode::Blocks => b"█",
+                        CharacterMode::Blocks => [0x2588].to_vec(),
+                        // CharacterMode::Dots => b"•",
+                        CharacterMode::Dots => [0x2022].to_vec(),
+                        // CharacterMode::Dots => [0x25A0].to_vec(),
                         CharacterMode::Ascii => {
-                            let c = match grey {
-                                0..=42 => "@",
-                                43..=85 => "#",
-                                86..=127 => "+",
-                                128..=170 => ":",
-                                171..=212 => ".",
-                                213..=255 => "-",
-                            };
-                            c.truecolor(128, 128, 128).on_truecolor(r, g, b).to_string()
+                            b"@#%*+=-:. ".to_vec().iter().map(|&x| x as u32).collect()
+                        }
+                        // CharacterMode::AsciiExtended =>
+                        //     b"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\" ^ `'. ".to_vec().iter().map(|&x| x as u32).collect(),
+                        CharacterMode::AsciiExtended => {
+                            " .'`^\",:;Il!i><~+_-?][}{1)(|\\//tfjrxnuvczXUYJCLQ0OZmwqpbdkhao*#M&W&8%B@$".to_string().chars().map(|x| x as u32).collect()
                         }
                         CharacterMode::Numbers => {
-                            let c = match grey {
-                                0..=42 => "8",
-                                43..=85 => "5",
-                                86..=127 => "3",
-                                128..=170 => "2",
-                                171..=212 => "1",
-                                213..=255 => "0",
-                            };
-                            c.truecolor(128, 128, 128).on_truecolor(r, g, b).to_string()
+                            b"853210".to_vec().iter().map(|&x| x as u32).collect()
                         }
-                        CharacterMode::Unicode => {
-                            let c = match grey {
-                                0..=63 => "█",
-                                64..=127 => "▓",
-                                128..=191 => "▒",
-                                192..=255 => "░",
-                            };
-                            c.on_black().truecolor(r, g, b).to_string()
-                        }
+                        // CharacterMode::Unicode => b"▓▒▒▓",
+                        // CharacterMode::Unicode => [0x2588, 0x2593, 0x2592, 0x2591].to_vec(),
+                        // 0x2591 == ░
+                        // 0x2592 == ▒
+                        // 0x2593 == ▓
+                        CharacterMode::Unicode => [0x2591, 0x2592].to_vec(),
+                        // [0x2588, 0x259A,0x25A0
                     };
 
-                    output.push_str(&format!(
-                        "{}{}",
-                        cursor::Goto(
-                            (x + x_offset) as u16,
-                            ((y / step_size + 1) + y_offset) as u16
-                        ),
-                        ascii
-                    ));
+                    let ramp_len = ramp.len() as f32;
+                    let ramp_index = (grey as f32 / 255.0 * (ramp_len - 1.0)).round() as usize;
+
+                    let ascii = char::from_u32(ramp[ramp_index]).unwrap();
+
+                    let color = match self.character_mode {
+                        CharacterMode::Blocks | CharacterMode::Dots => Color::Rgb { r, g, b },
+                        CharacterMode::Ascii
+                        | CharacterMode::Numbers
+                        | CharacterMode::Unicode
+                        | CharacterMode::AsciiExtended => Color::Rgb {
+                            r: 128,
+                            g: 128,
+                            b: 128,
+                        },
+                    };
+
+                    if background.is_none() && last_bg != Some(Color::Rgb { r, g, b }) {
+                        queue!(stdout, SetBackgroundColor(Color::Rgb { r, g, b }))?;
+                    }
+
+                    queue!(
+                        stdout,
+                        MoveTo((x + x_offset) as u16, ((y / step_size) + y_offset) as u16),
+                    )?;
+
+                    if last_fg != Some(color) {
+                        queue!(stdout, SetForegroundColor(color))?;
+                    }
+
+                    queue!(stdout, Print(ascii))?;
+
+                    last_bg = Some(Color::Rgb { r, g, b });
+                    last_fg = Some(color);
                 }
             }
         }
 
-        write!(stdout, "{}", output).unwrap();
         self.last_frame = Some(img);
         self.frame_times.push(Instant::now());
-        io::stdout().flush().unwrap();
+
+        Ok(())
     }
 
     pub fn fps(&mut self) -> f64 {
