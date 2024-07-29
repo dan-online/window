@@ -6,12 +6,12 @@ use video_rs::hwaccel::HardwareAccelerationDeviceType;
 #[serde(rename_all = "kebab-case")]
 pub enum CharacterMode {
     #[default]
-    Blocks,
+    Block,
     Dots,
     Ascii,
     AsciiExtended,
     Numbers,
-    Unicode,
+    Blocks,
 }
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
@@ -79,23 +79,31 @@ impl HardwareAcceleration {
 #[derive(Parser, Debug)]
 #[command(version, author, about, long_about = None)]
 pub struct Args {
+    /// The URL of the video to play
     pub url: String,
 
+    /// Distance from the previous pixel to replace
+    /// 0 will update every pixel at the cost of performance
     #[clap(short, long, default_value = "2")]
     pub pixel_clear_distance: Option<u16>,
 
+    /// The character mode to use
     #[clap(short, long, default_value = "blocks")]
     pub mode: Option<CharacterMode>,
 
+    /// The scale mode to use
     #[clap(short, long, default_value = "fit")]
     pub scale: Option<ScaleMode>,
 
+    /// Whether to cap the framerate to the video's framerate
     #[clap(short, long, default_value = "true")]
     pub cap_framerate: Option<bool>,
 
+    /// The hardware acceleration device to use
     #[clap(long, default_value = "none")]
     pub hw_accel: Option<HardwareAcceleration>,
 
+    /// Whether to use fullscreen
     #[clap(long, short, action)]
     pub fullscreen: bool,
 }

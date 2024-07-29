@@ -20,6 +20,7 @@ use crate::utils::ffprobe::{
 use crate::utils::format_time::format_time;
 use crate::utils::get_grey::get_grey;
 use crate::utils::rgb_distance::rgb_distance;
+use crate::utils::step_size::step_size;
 use crate::utils::youtube::get_youtube_video_from_url;
 use crate::{CharacterMode, ScaleMode};
 
@@ -37,6 +38,7 @@ pub struct Video {
     pub cap_framerate: bool,
     pub fullscreen: bool,
     pub hw_accel: HardwareAcceleration,
+    pub render_size: (u32, u32),
 }
 
 enum VideoUrl {
@@ -61,12 +63,6 @@ impl std::str::FromStr for VideoUrl {
     }
 }
 
-fn get_step_size() -> u32 {
-    let (width, height) = terminal::size().unwrap();
-
-    (width / (height - 2)) as u32 - 2
-}
-
 impl Video {
     pub fn from_args(args: Args) -> Self {
         Self {
@@ -77,19 +73,21 @@ impl Video {
             last_frame: None,
             fullscreen: args.fullscreen,
             cap_framerate: args.cap_framerate.unwrap_or(true),
-            character_mode: args.mode.unwrap_or(CharacterMode::Blocks),
+            character_mode: args.mode.unwrap_or(CharacterMode::Block),
             pixel_clear_distance: args.pixel_clear_distance.unwrap_or(2),
             scale_mode: args.scale.unwrap_or(ScaleMode::Fit),
             hw_accel: args.hw_accel.unwrap_or(HardwareAcceleration::None),
+            render_size: (0, 0),
         }
     }
 
     pub fn write_header(&self, stdout: &mut io::Stdout) -> anyhow::Result<()> {
         let (cols, rows) = terminal::size().unwrap();
+        let (vid_cols, vid_rows) = self.render_size;
 
         if !self.fullscreen {
             let playing_text = format!(" Playing: {} ", self.title);
-            let resolution_text = format!("Resolution: {}x{}", cols, rows);
+            let resolution_text = format!("{}x{}/{}x{}", vid_cols, vid_rows, cols, rows);
 
             queue!(
                 stdout,
@@ -153,7 +151,7 @@ impl Video {
 
         let duration = ffprobe_get_duration(&video_url.to_string()).await?;
 
-        let step_size = get_step_size();
+        let step_size = step_size();
 
         let mut render_height = height as u32 * step_size;
         let render_width = width as u32;
@@ -174,6 +172,8 @@ impl Video {
         }
 
         let mut decoder = decoder.build().expect("failed to create decoder");
+
+        self.render_size = decoder.size_out();
 
         let (frame_tx, frame_rx) = unbounded_channel();
 
@@ -200,7 +200,7 @@ impl Video {
         )
         .unwrap();
 
-        let step_size: u32 = get_step_size();
+        let step_size: u32 = step_size();
 
         let (terminal_width, _) = terminal::size().unwrap();
 
@@ -213,7 +213,7 @@ impl Video {
         let y_offset: u32 = if !self.fullscreen { 2 } else { 0 };
 
         let background = match self.character_mode {
-            CharacterMode::Blocks | CharacterMode::Dots => None,
+            CharacterMode::Block | CharacterMode::Dots => None,
             _ => None,
         };
 
@@ -246,29 +246,21 @@ impl Video {
                     let grey = get_grey(r, g, b);
 
                     let ramp: Vec<u32> = match self.character_mode {
-                        // CharacterMode::Blocks => b"█",
-                        CharacterMode::Blocks => [0x2588].to_vec(),
-                        // CharacterMode::Dots => b"•",
+                        // █
+                        CharacterMode::Block => [0x2588].to_vec(),
+                        // •
                         CharacterMode::Dots => [0x2022].to_vec(),
-                        // CharacterMode::Dots => [0x25A0].to_vec(),
                         CharacterMode::Ascii => {
                             b"@#%*+=-:. ".to_vec().iter().map(|&x| x as u32).collect()
                         }
-                        // CharacterMode::AsciiExtended =>
-                        //     b"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\" ^ `'. ".to_vec().iter().map(|&x| x as u32).collect(),
                         CharacterMode::AsciiExtended => {
                             " .'`^\",:;Il!i><~+_-?][}{1)(|\\//tfjrxnuvczXUYJCLQ0OZmwqpbdkhao*#M&W&8%B@$".to_string().chars().map(|x| x as u32).collect()
                         }
                         CharacterMode::Numbers => {
                             b"853210".to_vec().iter().map(|&x| x as u32).collect()
                         }
-                        // CharacterMode::Unicode => b"▓▒▒▓",
-                        // CharacterMode::Unicode => [0x2588, 0x2593, 0x2592, 0x2591].to_vec(),
-                        // 0x2591 == ░
-                        // 0x2592 == ▒
-                        // 0x2593 == ▓
-                        CharacterMode::Unicode => [0x2591, 0x2592].to_vec(),
-                        // [0x2588, 0x259A,0x25A0
+                        // ░▒
+                        CharacterMode::Blocks => [0x2591, 0x2592].to_vec(),
                     };
 
                     let ramp_len = ramp.len() as f32;
@@ -277,10 +269,10 @@ impl Video {
                     let ascii = char::from_u32(ramp[ramp_index]).unwrap();
 
                     let color = match self.character_mode {
-                        CharacterMode::Blocks | CharacterMode::Dots => Color::Rgb { r, g, b },
+                        CharacterMode::Block | CharacterMode::Dots => Color::Rgb { r, g, b },
                         CharacterMode::Ascii
                         | CharacterMode::Numbers
-                        | CharacterMode::Unicode
+                        | CharacterMode::Blocks
                         | CharacterMode::AsciiExtended => Color::Rgb {
                             r: 128,
                             g: 128,
@@ -341,7 +333,12 @@ impl Video {
             width = 6
         );
 
-        let fps_text = format!("FPS: {:.0}/{}", render_fps, self.fps);
+        // let fps_text = format!("FPS: {:.0}/{}", render_fps, self.fps);
+        let fps_text = format!(
+            "{:>width$}",
+            format!("FPS: {:.0}/{}", render_fps, self.fps),
+            width = 11
+        );
 
         let (current_time_str, duration_str, progress_bar) = match duration {
             DurationType::Fixed(duration) => {

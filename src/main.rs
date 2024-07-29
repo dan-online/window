@@ -13,6 +13,7 @@ use tokio::{
 };
 use utils::{
     args::{Args, CharacterMode, ScaleMode},
+    calculate_fps::calculate_fps,
     ffprobe::DurationType,
 };
 use video::{Frame, Video};
@@ -20,10 +21,12 @@ use video::{Frame, Video};
 mod video;
 mod utils {
     pub mod args;
+    pub mod calculate_fps;
     pub mod ffprobe;
     pub mod format_time;
     pub mod get_grey;
     pub mod rgb_distance;
+    pub mod step_size;
     pub mod youtube;
 }
 
@@ -61,10 +64,13 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn end() {
-    print!("{}", cursor::Show);
-    print!("{}", style::ResetColor);
-    print!("{}", MoveTo(0, 0));
-    print!("{}", Clear(ClearType::All));
+    print!(
+        "{}{}{}{}",
+        cursor::Show,
+        style::ResetColor,
+        MoveTo(0, 0),
+        Clear(ClearType::All)
+    );
     exit(0);
 }
 
@@ -72,24 +78,6 @@ fn end() {
 async fn handle_signal_input() {
     tokio::signal::ctrl_c().await.unwrap();
     end();
-}
-
-fn calculate_fps(frame_times: &[Instant]) -> f64 {
-    let frame_count = frame_times.len();
-
-    if frame_count < 10 {
-        return 0.0;
-    }
-
-    let start = frame_times[0];
-    let end = frame_times[frame_count - 1];
-    let elapsed = end.duration_since(start);
-
-    if elapsed.as_secs_f64() == 0.0 {
-        return 0.0;
-    }
-
-    frame_count as f64 / elapsed.as_secs_f64()
 }
 
 // Render video frames to the terminal
