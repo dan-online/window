@@ -56,6 +56,9 @@ jobs:
                 # Update Cargo.toml with the new version
                 sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
 
+                # Update Cargo.lock with the new version
+                cargo update -p window
+
             - name: Install ${{ matrix.settings.rust }} toolchain
               uses: actions-rs/toolchain@v1
               with:
