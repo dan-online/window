@@ -24,12 +24,14 @@
 
 Window is a terminal-based video player that allows you to watch videos directly in your terminal. It supports local, remote, and YouTube videos assisted by hardware acceleration.
 
+![window](assets/demo.gif)
+
 ### Features
 
 - Variety of video sources
     - Local file
     - Remote file
-    - YouTube video
+    - YouTube video (using yt-dlp)
       - VOD
       - Live
     - Live Stream
@@ -46,6 +48,8 @@ Window is a terminal-based video player that allows you to watch videos directly
 - [ ] Better color accuracy
 
 ## Getting Started
+
+> **Note:** Window requires yt-dlp installed in order to use the youtube feature. You can install it by running `pip install yt-dlp`.
 
 ### Docker cli
 
