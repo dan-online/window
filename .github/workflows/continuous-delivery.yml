@@ -97,6 +97,14 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Update Cargo.toml version
+        run: |
+          # Extract version from the tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Update Cargo.toml with the new version
+          sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
+
       - name: Install ${{ matrix.settings.rust }} toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -158,17 +166,48 @@ jobs:
           name: window-${{ matrix.settings.os }}-${{ matrix.settings.target }}
           path: target/${{ matrix.settings.target }}/release/window.exe
       
-  # create-release:
-  #   name: Create Release
-  #   needs: [binary]
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - name: Download binary
-  #       uses: actions/download-artifact@v2
-  #       with:
-  #         name: ubuntu-24.04-x86_64-unknown-linux-gnu-binary
-  #     - name: Download binary
-  #       uses: actions/download-artifact@v2
-  #       with:
-  #         name: windows-2019-x86_64-pc-windows-msvc-binary.exe
+  upload_to_release:
+    name: Upload to Release
+    needs: binary
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: window-ubuntu-24.04-x86_64-unknown-linux-gnu
+      
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: window-windows-2019-x86_64-pc-windows-msvc
 
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: true
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/x86_64-unknown-linux-gnu/release/window
+          asset_name: window
+          asset_content_type: application/octet-stream
+      
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/x86_64-pc-windows-msvc/release/window.exe
+          asset_name: window.exe
+          asset_content_type: application/octet-stream
