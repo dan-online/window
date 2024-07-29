@@ -122,7 +122,7 @@ jobs:
 
       - name: vcpkg build
         if: matrix.settings.os == 'windows-2019'
-        uses: johnwason/vcpkg-action@v6
+        uses:   
         id: vcpkg
         with:
           pkgs: ffmpeg
@@ -140,6 +140,8 @@ jobs:
           use-cross: ${{ matrix.settings.cross }}
           command: build
           args: --release --locked --target ${{ matrix.settings.target }}
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
       # add binary as artifact
       - name: Upload binary
