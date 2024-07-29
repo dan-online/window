@@ -13,7 +13,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::time::Instant;
 use video_rs::{DecoderBuilder, Location, Options, Resize, Url};
 
-use crate::utils::args::HardwareAcceleration;
+use crate::utils::args::{Args, HardwareAcceleration};
 use crate::utils::ffprobe::{
     ffmpeg_initialize, ffprobe_get_duration, ffprobe_get_fps, DurationType,
 };
@@ -27,6 +27,8 @@ pub type Frame = ArrayBase<OwnedRepr<u8>, Dim<[usize; 3]>>;
 
 pub struct Video {
     pub url: String,
+    pub title: String,
+    pub fps: u64,
     pub frame_times: Vec<Instant>,
     pub last_frame: Option<ImageBuffer<Rgb<u8>, Vec<u8>>>,
     pub character_mode: CharacterMode,
@@ -34,6 +36,7 @@ pub struct Video {
     pub scale_mode: ScaleMode,
     pub cap_framerate: bool,
     pub fullscreen: bool,
+    pub hw_accel: HardwareAcceleration,
 }
 
 enum VideoUrl {
@@ -61,14 +64,53 @@ impl std::str::FromStr for VideoUrl {
 fn get_step_size() -> u32 {
     let (width, height) = terminal::size().unwrap();
 
-    return (width / (height - 2)) as u32 - 2;
+    (width / (height - 2)) as u32 - 2
 }
 
 impl Video {
+    pub fn from_args(args: Args) -> Self {
+        Self {
+            title: "".to_string(),
+            fps: 0,
+            url: args.url,
+            frame_times: vec![],
+            last_frame: None,
+            fullscreen: args.fullscreen,
+            cap_framerate: args.cap_framerate.unwrap_or(true),
+            character_mode: args.mode.unwrap_or(CharacterMode::Blocks),
+            pixel_clear_distance: args.pixel_clear_distance.unwrap_or(2),
+            scale_mode: args.scale.unwrap_or(ScaleMode::Fit),
+            hw_accel: args.hw_accel.unwrap_or(HardwareAcceleration::None),
+        }
+    }
+
+    pub fn write_header(&self, stdout: &mut io::Stdout) -> anyhow::Result<()> {
+        let (cols, rows) = terminal::size().unwrap();
+
+        if !self.fullscreen {
+            let playing_text = format!(" Playing: {} ", self.title);
+            let resolution_text = format!("Resolution: {}x{}", cols, rows);
+
+            queue!(
+                stdout,
+                MoveTo(0, 0),
+                ResetColor,
+                Print(format!(
+                    "{}{}{}",
+                    playing_text,
+                    " ".repeat(cols as usize - playing_text.len() - resolution_text.len()),
+                    resolution_text
+                ))
+            )?
+        }
+
+        Ok(())
+    }
+
     pub async fn fetch_video(
-        &self,
+        &mut self,
         hw_accel: HardwareAcceleration,
-    ) -> anyhow::Result<(UnboundedReceiver<(Frame, DurationType)>, String, u64)> {
+    ) -> anyhow::Result<UnboundedReceiver<(Frame, DurationType)>> {
         ffmpeg_initialize()?;
 
         let video_type = self.url.parse::<VideoUrl>().unwrap();
@@ -141,14 +183,13 @@ impl Video {
             }
         });
 
-        Ok((frame_rx, title, fps))
+        self.fps = fps;
+        self.title = title;
+
+        Ok(frame_rx)
     }
 
-    pub fn print_frame_to_terminal(
-        &mut self,
-        frame: &Frame,
-        stdout: &mut io::Stdout,
-    ) -> anyhow::Result<()> {
+    pub fn write_frame(&mut self, frame: &Frame, stdout: &mut io::Stdout) -> anyhow::Result<()> {
         let frame_height = frame.shape()[0];
         let frame_width = frame.shape()[1];
 
@@ -274,10 +315,9 @@ impl Video {
         Ok(())
     }
 
-    pub fn print_footer_to_terminal(
+    pub fn write_footer(
         &self,
         stdout: &mut io::Stdout,
-        fps: u64,
         render_fps: f64,
         current_time: f32,
         duration: DurationType,
@@ -301,7 +341,7 @@ impl Video {
             width = 6
         );
 
-        let fps_text = format!("FPS: {:.0}/{}", render_fps, fps);
+        let fps_text = format!("FPS: {:.0}/{}", render_fps, self.fps);
 
         let (current_time_str, duration_str, progress_bar) = match duration {
             DurationType::Fixed(duration) => {

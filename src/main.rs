@@ -1,9 +1,9 @@
 use clap::Parser;
 use crossterm::{
     cursor::{self, MoveTo},
-    execute, queue,
-    style::{self, Print, ResetColor},
-    terminal::{self, Clear, ClearType},
+    execute,
+    style::{self},
+    terminal::{Clear, ClearType},
 };
 use std::io::{self, Write};
 use std::{process::exit, time::Duration};
@@ -33,22 +33,10 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // Initialize "video" with parameters
-    let video = Video {
-        url: args.url,
-        frame_times: vec![],
-        last_frame: None,
-        fullscreen: args.fullscreen,
-        cap_framerate: args.cap_framerate.unwrap_or(true),
-        character_mode: args.mode.unwrap_or(CharacterMode::Blocks),
-        pixel_clear_distance: args.pixel_clear_distance.unwrap_or(2),
-        scale_mode: args.scale.unwrap_or(ScaleMode::Fit),
-    };
+    let mut video = Video::from_args(args);
 
     // Fetch video frames and frames per second
-    let (mut frames_recv, title, fps) = video
-        .fetch_video(args.hw_accel.unwrap_or_default())
-        .await
-        .unwrap();
+    let mut frames_recv = video.fetch_video(video.hw_accel.clone()).await.unwrap();
     let (render_tx, render_recv) = unbounded_channel::<(Frame, DurationType)>();
 
     let mut stdout = io::stdout();
@@ -60,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(handle_signal_input());
 
     // Spawn a task to render video frames
-    let handle_render = tokio::spawn(handle_render(video, title, fps, render_recv));
+    let handle_render = tokio::spawn(handle_render(video, render_recv));
 
     // Forward frames to the render task
     while let Some(data) = frames_recv.recv().await {
@@ -86,7 +74,7 @@ async fn handle_signal_input() {
     end();
 }
 
-fn calculate_fps(frame_times: &Vec<Instant>) -> f64 {
+fn calculate_fps(frame_times: &[Instant]) -> f64 {
     let frame_count = frame_times.len();
 
     if frame_count < 10 {
@@ -107,42 +95,23 @@ fn calculate_fps(frame_times: &Vec<Instant>) -> f64 {
 // Render video frames to the terminal
 async fn handle_render(
     mut video: Video,
-    title: String,
-    fps: u64,
     mut render_recv: UnboundedReceiver<(Frame, DurationType)>,
 ) -> anyhow::Result<()> {
     let started = Instant::now();
-    let std_frame_time = Duration::from_micros(1_000_000 / fps);
+    let std_frame_time = Duration::from_micros(1_000_000 / video.fps);
     let mut frames_seen = 0;
     let mut frame_times: Vec<Instant> = vec![];
 
     let mut stdout = io::stdout();
-    let (cols, rows) = terminal::size()?;
 
-    if !video.fullscreen {
-        let playing_text = format!(" Playing: {} ", title);
-        let resolution_text = format!("Resolution: {}x{}", cols, rows);
-
-        queue!(
-            stdout,
-            MoveTo(0, 0),
-            ResetColor,
-            Print(format!(
-                "{}{}{}",
-                playing_text,
-                " ".repeat(cols as usize - playing_text.len() - resolution_text.len()),
-                resolution_text
-            ))
-        )
-        .unwrap();
-    }
+    video.write_header(&mut stdout)?;
 
     while let Some((frame, duration)) = render_recv.recv().await {
         frames_seen += 1;
 
         let start = Instant::now();
 
-        video.print_frame_to_terminal(&frame, &mut stdout)?;
+        video.write_frame(&frame, &mut stdout)?;
 
         let elapsed = start.elapsed();
         let sleep_duration = std_frame_time.saturating_sub(elapsed);
@@ -162,12 +131,11 @@ async fn handle_render(
             frame_times = frame_times[frame_times.len() - 10..].to_vec();
         }
 
-        let current_time = frames_seen as f32 / fps as f32;
+        let current_time = frames_seen as f32 / video.fps as f32;
 
         if !video.fullscreen {
-            video.print_footer_to_terminal(
+            video.write_footer(
                 &mut stdout,
-                fps,
                 render_fps,
                 current_time,
                 duration,
