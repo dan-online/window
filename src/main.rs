@@ -1,5 +1,5 @@
 use clap::Parser;
-use crossterm::event::{poll, read, Event, KeyCode, KeyModifiers};
+use crossterm::event::{read, Event, KeyCode, KeyModifiers};
 use crossterm::{
     cursor::{self, MoveTo},
     execute,
@@ -106,49 +106,45 @@ async fn handle_render(
 
     tokio::spawn(async move {
         loop {
-            let ev = read().unwrap();
-            match ev {
-                Event::Key(event) => {
-                    if event.code == KeyCode::Char('q')
-                        || (event.code == KeyCode::Char('c')
-                            && event.modifiers == KeyModifiers::CONTROL)
-                    {
-                        end();
-                    }
-
-                    if !video.live {
-                        if event.code == KeyCode::Char('l') {
-                            let mut frames_seen = frames_seen_copy.write().await;
-                            let current_time = *frames_seen as f32 / video.fps as f32;
-
-                            seek_tx
-                                .send((current_time * 1000.0 + 5000.0) as i64)
-                                .unwrap();
-
-                            // set frames_seen to new timestamp
-                            *frames_seen = ((current_time + 5.0) * (video.fps as f32)) as u64;
-                            drop(frames_seen);
-                        }
-
-                        if event.code == KeyCode::Char('k') {
-                            let mut frames_seen = frames_seen_copy.write().await;
-                            let current_time = *frames_seen as f32 / video.fps as f32;
-
-                            seek_tx
-                                .send((current_time * 1000.0 - 5000.0) as i64)
-                                .unwrap();
-
-                            *frames_seen =
-                                ((current_time - 5.0).max(0.0) * (video.fps as f32)) as u64;
-                            drop(frames_seen);
-                        }
-                    }
-
-                    // if event.code == KeyCode::Char('f') {
-                    //     video.fullscreen = !video.fullscreen;
-                    // } Doesn't work, prolly due to the spawn
+            let ev = read();
+            if let Ok(Event::Key(event)) = ev {
+                if event.code == KeyCode::Char('q')
+                    || (event.code == KeyCode::Char('c')
+                        && event.modifiers == KeyModifiers::CONTROL)
+                {
+                    end();
                 }
-                _ => {}
+
+                if !video.live {
+                    if event.code == KeyCode::Char('l') {
+                        let mut frames_seen = frames_seen_copy.write().await;
+                        let current_time = *frames_seen as f32 / video.fps as f32;
+
+                        seek_tx
+                            .send((current_time * 1000.0 + 5000.0) as i64)
+                            .unwrap();
+
+                        // set frames_seen to new timestamp
+                        *frames_seen = ((current_time + 5.0) * (video.fps as f32)) as u64;
+                        drop(frames_seen);
+                    }
+
+                    if event.code == KeyCode::Char('k') {
+                        let mut frames_seen = frames_seen_copy.write().await;
+                        let current_time = *frames_seen as f32 / video.fps as f32;
+
+                        seek_tx
+                            .send((current_time * 1000.0 - 5000.0) as i64)
+                            .unwrap();
+
+                        *frames_seen = ((current_time - 5.0).max(0.0) * (video.fps as f32)) as u64;
+                        drop(frames_seen);
+                    }
+                }
+
+                // if event.code == KeyCode::Char('f') {
+                //     video.fullscreen = !video.fullscreen;
+                // } Doesn't work, prolly due to the spawn
             }
         }
     });
