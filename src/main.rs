@@ -3,7 +3,7 @@ use crossterm::{
     cursor::{self, MoveTo},
     execute,
     style::{self},
-    terminal::{Clear, ClearType},
+    terminal::{self, Clear, ClearType},
 };
 use std::io::{self, Write};
 use std::{process::exit, time::Duration};
@@ -92,10 +92,20 @@ async fn handle_render(
 
     let mut stdout = io::stdout();
 
-    video.write_header(&mut stdout)?;
+    let (mut last_width, mut last_height) = terminal::size()?;
 
     while let Some((frame, duration)) = render_recv.recv().await {
+        let (width, height) = terminal::size()?;
+
+        if width != last_width || height != last_height {
+            execute!(stdout, Clear(ClearType::All))?;
+            last_width = width;
+            last_height = height;
+        }
+
         frames_seen += 1;
+
+        video.write_header(&mut stdout)?;
 
         let start = Instant::now();
 

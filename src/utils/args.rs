@@ -88,7 +88,7 @@ pub struct Args {
     pub pixel_clear_distance: Option<u16>,
 
     /// The character mode to use
-    #[clap(short, long, default_value = "blocks")]
+    #[clap(short, long, default_value = "block")]
     pub mode: Option<CharacterMode>,
 
     /// The scale mode to use
@@ -106,4 +106,8 @@ pub struct Args {
     /// Whether to use fullscreen
     #[clap(long, short, action)]
     pub fullscreen: bool,
+
+    /// Render without color
+    #[clap(long, short, action)]
+    pub no_color: bool,
 }

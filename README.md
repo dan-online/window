@@ -6,7 +6,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/dan-online/window">
-    <img src="assets/window-logo-round.webp" alt="Logo" width="80" height="80">
+    <img src="assets/window-logo-round.webp" alt="Window logo" width="80" height="80">
   </a>
 
 <h3 align="center">window</h3>
@@ -22,26 +22,30 @@
 
 ## About The Project
 
-Window is a terminal-based video player that allows you to watch videos directly in your terminal. It supports local, remote, and YouTube videos assisted by hardware acceleration.
+Window is a terminal-based video player that allows you to watch videos directly in your terminal. It supports local, remote, and YouTube videos assisted by hardware accelerated decoding
 
 ![window](assets/demo.gif)
 
 ### Features
 
-- Variety of video sources
-    - Local file
-    - Remote file
-    - YouTube video (using yt-dlp)
-      - VOD
-      - Live
-    - Live Stream
-- Hardware acceleration
-    - Utilizes hardware acceleration for decoding video streams
+- **Variety of Video Sources**
+    - **Local File**: Seamlessly play videos stored on your local machine.
+    - **Remote File**: Stream videos directly from remote URLs, ensuring flexibility and convenience.
+    - **YouTube Video (using yt-dlp)**: 
+        - **Video on Demand (VOD)**: Access and play YouTube videos on demand, with support for various formats and qualities.
+        - **Live**: Watch live streams from YouTube in real-time, providing a unique and dynamic viewing experience.
+    - **Live Stream**: Support for various live streaming protocols, allowing you to watch live broadcasts from different platforms and sources.
+
+- **Hardware Acceleration**
+    - **Enhanced Performance**: Leverages hardware acceleration to optimize decoding of video streams, reducing CPU usage and providing smoother playback.
+    - **Multi-Platform Support**: Compatible with a wide range of hardware, ensuring optimal performance across different devices and operating systems.
+
 
 ## TODO
 
 - [ ] Error handling
 - [x] Full screen mode
+- [ ] Resizing
 - [ ] Tests
 - [ ] Audio???
 - [ ] Subtitles???
@@ -49,9 +53,11 @@ Window is a terminal-based video player that allows you to watch videos directly
 
 ## Getting Started
 
+> **Note:** Window requires ffmpeg libraries to be installed, for more information check [here](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building#dependencies)
+
 > **Note:** Window requires yt-dlp installed in order to use the youtube feature. You can install it by running `pip install yt-dlp`.
 
-### Docker cli
+### Docker
 
 ```bash
 $ docker run -it --rm danonline/window:latest --help
@@ -71,10 +77,6 @@ Distributed under the MIT License. See [`LICENSE`](https://dancodes.mit-license.
 DanCodes - <dan@dancodes.online>
 
 Project Link: [https://github.com/dan-online/window](https://github.com/dan-online/window)
-
-## Disclaimer
-
-The information and software contained herein are provided solely for educational purposes. I am not responsible for any misuse of this software for copyright infringement.
 
 [contributors-shield]: https://img.shields.io/github/contributors/dan-online/window.svg?style=for-the-badge
 [contributors-url]: https://github.com/dan-online/window/graphs/contributors

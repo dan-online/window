@@ -39,6 +39,7 @@ pub struct Video {
     pub fullscreen: bool,
     pub hw_accel: HardwareAcceleration,
     pub render_size: (u32, u32),
+    pub no_color: bool,
 }
 
 enum VideoUrl {
@@ -78,6 +79,7 @@ impl Video {
             scale_mode: args.scale.unwrap_or(ScaleMode::Fit),
             hw_accel: args.hw_accel.unwrap_or(HardwareAcceleration::None),
             render_size: (0, 0),
+            no_color: args.no_color,
         }
     }
 
@@ -96,7 +98,11 @@ impl Video {
                 Print(format!(
                     "{}{}{}",
                     playing_text,
-                    " ".repeat(cols as usize - playing_text.len() - resolution_text.len()),
+                    " ".repeat(
+                        (cols as usize)
+                            .saturating_sub(playing_text.len())
+                            .saturating_sub(resolution_text.len())
+                    ),
                     resolution_text
                 ))
             )?
@@ -157,7 +163,7 @@ impl Video {
         let render_width = width as u32;
 
         if !self.fullscreen {
-            render_height -= 8;
+            render_height = render_height.saturating_sub(8);
         }
 
         let mut decoder = DecoderBuilder::new(video_url)
@@ -212,17 +218,34 @@ impl Video {
 
         let y_offset: u32 = if !self.fullscreen { 2 } else { 0 };
 
-        let background = match self.character_mode {
-            CharacterMode::Block | CharacterMode::Dots => None,
-            _ => None,
-        };
-
-        if let Some(background) = background {
-            queue!(stdout, SetBackgroundColor(background))?;
-        }
-
         let mut last_bg: Option<Color> = None;
         let mut last_fg: Option<Color> = None;
+
+        let mut ramp: Vec<u32> = match self.character_mode {
+            // █
+            CharacterMode::Block => [0x2588].to_vec(),
+            // •
+            CharacterMode::Dots => [0x2022].to_vec(),
+            CharacterMode::Ascii => b"@#%*+=-:. ".to_vec().iter().map(|&x| x as u32).collect(),
+            CharacterMode::AsciiExtended => {
+                " .'`^\",:;Il!i><~+_-?][}{1)(|\\//tfjrxnuvczXUYJCLQ0OZmwqpbdkhao*#M&W&8%B@$"
+                    .to_string()
+                    .chars()
+                    .map(|x| x as u32)
+                    .collect()
+            }
+            CharacterMode::Numbers => b"1742350698".to_vec().iter().map(|&x| x as u32).collect(),
+            // ░▒
+            CharacterMode::Blocks => [0x2591, 0x2592].to_vec(),
+        };
+
+        if self.no_color {
+            if ramp[ramp.len() - 1] != ' ' as u32 {
+                ramp.append(&mut vec![' ' as u32]);
+            }
+
+            queue!(stdout, SetBackgroundColor(Color::Black))?;
+        }
 
         for y in (0..img.height()).step_by(step_size as usize) {
             for x in 0..img.width() {
@@ -245,28 +268,19 @@ impl Video {
                 if needs_update {
                     let grey = get_grey(r, g, b);
 
-                    let ramp: Vec<u32> = match self.character_mode {
-                        // █
-                        CharacterMode::Block => [0x2588].to_vec(),
-                        // •
-                        CharacterMode::Dots => [0x2022].to_vec(),
-                        CharacterMode::Ascii => {
-                            b"@#%*+=-:. ".to_vec().iter().map(|&x| x as u32).collect()
-                        }
-                        CharacterMode::AsciiExtended => {
-                            " .'`^\",:;Il!i><~+_-?][}{1)(|\\//tfjrxnuvczXUYJCLQ0OZmwqpbdkhao*#M&W&8%B@$".to_string().chars().map(|x| x as u32).collect()
-                        }
-                        CharacterMode::Numbers => {
-                            b"853210".to_vec().iter().map(|&x| x as u32).collect()
-                        }
-                        // ░▒
-                        CharacterMode::Blocks => [0x2591, 0x2592].to_vec(),
-                    };
-
                     let ramp_len = ramp.len() as f32;
                     let ramp_index = (grey as f32 / 255.0 * (ramp_len - 1.0)).round() as usize;
 
                     let ascii = char::from_u32(ramp[ramp_index]).unwrap();
+
+                    if self.no_color {
+                        queue!(
+                            stdout,
+                            MoveTo((x + x_offset) as u16, ((y / step_size) + y_offset) as u16),
+                            Print(ascii)
+                        )?;
+                        continue;
+                    }
 
                     let color = match self.character_mode {
                         CharacterMode::Block | CharacterMode::Dots => Color::Rgb { r, g, b },
@@ -280,7 +294,7 @@ impl Video {
                         },
                     };
 
-                    if background.is_none() && last_bg != Some(Color::Rgb { r, g, b }) {
+                    if last_bg != Some(Color::Rgb { r, g, b }) {
                         queue!(stdout, SetBackgroundColor(Color::Rgb { r, g, b }))?;
                     }
 
@@ -326,7 +340,7 @@ impl Video {
         )
         .unwrap();
 
-        let frame_time = format!(
+        let mut frame_time_text = format!(
             "{:>width$}ms",
             format!("{:.2}", elapsed.as_secs_f64() * 1000.0),
             // over 1000ms is unlikely, and if so then they have other problems
@@ -334,7 +348,7 @@ impl Video {
         );
 
         // let fps_text = format!("FPS: {:.0}/{}", render_fps, self.fps);
-        let fps_text = format!(
+        let mut fps_text = format!(
             "{:>width$}",
             format!("FPS: {:.0}/{}", render_fps, self.fps),
             width = 11
@@ -348,12 +362,31 @@ impl Video {
                 let current_time_str = format_time(current_time as u64);
                 let duration_str = format_time(duration as u64);
 
-                let space = width as usize
-                    - current_time_str.len()
-                    - duration_str.len()
-                    - fps_text.len()
-                    - frame_time.len()
-                    - 10;
+                // let space = width as usize
+                //     - current_time_str.len()
+                //     - duration_str.len()
+                //     - fps_text.len()
+                //     - frame_time.len()
+                //     - 10;
+                let mut space = (width as usize).saturating_sub(
+                    current_time_str.len()
+                        + duration_str.len()
+                        + fps_text.len()
+                        + frame_time_text.len()
+                        + 10,
+                );
+
+                if space < 1 {
+                    fps_text = "".to_string();
+                    frame_time_text = "".to_string();
+                    space = (width as usize).saturating_sub(
+                        current_time_str.len()
+                            + duration_str.len()
+                            + fps_text.len()
+                            + frame_time_text.len()
+                            + 8,
+                    );
+                }
 
                 let watched_space = (progress * (space as f32)) as usize;
                 let remaining_space = (space - watched_space) as usize;
@@ -408,7 +441,7 @@ impl Video {
             stdout,
             Print(format!(
                 " {}/{} {} {} {} ",
-                current_time_str, duration_str, progress_bar, fps_text, frame_time
+                current_time_str, duration_str, progress_bar, fps_text, frame_time_text
             ))
         )
         .map_err(|e| anyhow::anyhow!(e))
