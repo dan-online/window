@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::io::{self};
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::time::Instant;
 use video_rs::{DecoderBuilder, Location, Options, Resize, Url};
 
@@ -35,11 +35,12 @@ pub struct Video {
     pub character_mode: CharacterMode,
     pub pixel_clear_distance: u16,
     pub scale_mode: ScaleMode,
-    pub cap_framerate: bool,
+    pub remove_fps_cap: bool,
     pub fullscreen: bool,
     pub hw_accel: HardwareAcceleration,
     pub render_size: (u32, u32),
     pub no_color: bool,
+    pub live: bool,
 }
 
 enum VideoUrl {
@@ -73,13 +74,14 @@ impl Video {
             frame_times: vec![],
             last_frame: None,
             fullscreen: args.fullscreen,
-            cap_framerate: args.cap_framerate.unwrap_or(true),
+            remove_fps_cap: args.remove_fps_cap,
             character_mode: args.mode.unwrap_or(CharacterMode::Block),
             pixel_clear_distance: args.pixel_clear_distance.unwrap_or(2),
             scale_mode: args.scale.unwrap_or(ScaleMode::Fit),
             hw_accel: args.hw_accel.unwrap_or(HardwareAcceleration::None),
             render_size: (0, 0),
             no_color: args.no_color,
+            live: false,
         }
     }
 
@@ -114,15 +116,20 @@ impl Video {
     pub async fn fetch_video(
         &mut self,
         hw_accel: HardwareAcceleration,
-    ) -> anyhow::Result<UnboundedReceiver<(Frame, DurationType)>> {
+    ) -> anyhow::Result<(
+        UnboundedReceiver<(Frame, DurationType)>,
+        UnboundedSender<i64>,
+    )> {
         ffmpeg_initialize()?;
 
         let video_type = self.url.parse::<VideoUrl>().unwrap();
 
         let (video_url, fps, title) = match video_type {
             VideoUrl::YoutubeUrl(url) => {
-                let (video_url, fps, title) = get_youtube_video_from_url(&url)
+                let (video_url, fps, title, live) = get_youtube_video_from_url(&url)
                     .with_context(|| format!("Failed to get video from {}", url))?;
+
+                self.live = live;
 
                 (
                     Location::Network(video_url.parse::<Url>().unwrap()),
@@ -182,9 +189,14 @@ impl Video {
         self.render_size = decoder.size_out();
 
         let (frame_tx, frame_rx) = unbounded_channel();
+        let (seek_tx, mut seek_rx) = unbounded_channel();
 
         tokio::spawn(async move {
             while let Ok((_, frame)) = decoder.decode() {
+                if let Ok(seek) = seek_rx.try_recv() {
+                    decoder.seek(seek).unwrap();
+                }
+
                 frame_tx.send((frame, duration)).unwrap();
             }
         });
@@ -192,7 +204,7 @@ impl Video {
         self.fps = fps;
         self.title = title;
 
-        Ok(frame_rx)
+        Ok((frame_rx, seek_tx))
     }
 
     pub fn write_frame(&mut self, frame: &Frame, stdout: &mut io::Stdout) -> anyhow::Result<()> {

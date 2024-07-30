@@ -68,6 +68,35 @@ $ docker run -it --rm danonline/window:latest "https://www.youtube.com/watch?v=d
 
 Check out the [releases](https://github.com/dan-online/window/releases) page for the latest binaries.
 
+## Usage
+
+```xsd
+Usage: window [OPTIONS] <URL>
+
+Arguments:
+  <URL>  The URL of the video to play
+
+Options:
+  -p, --pixel-clear-distance <PIXEL_CLEAR_DISTANCE>
+          Distance from the previous pixel to replace 0 will update every pixel at the cost of performance [default: 2]
+  -m, --mode <MODE>
+          The character mode to use [default: block] [possible values: block, dots, ascii, ascii-extended, numbers, blocks]
+  -s, --scale <SCALE>
+          The scale mode to use [default: fit] [possible values: fit, stretch]
+  -r, --remove-fps-cap
+          Allow the framerate to exceed the video's framerate
+      --hw-accel <HW_ACCEL>
+          The hardware acceleration device to use [default: none] [possible values: none, vdpau, cuda, va-api, dxva2, qsv, video-toolbox, d3d11-va, drm, open-cl, meia-codec, vulkan, d3d12-va]
+  -f, --fullscreen
+          Whether to use fullscreen
+  -n, --no-color
+          Render without color
+  -h, --help
+          Print help (see more with '--help')
+  -V, --version
+          Print version
+```
+
 ## License
 
 Distributed under the MIT License. See [`LICENSE`](https://dancodes.mit-license.org) for more information.

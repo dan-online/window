@@ -95,9 +95,9 @@ pub struct Args {
     #[clap(short, long, default_value = "fit")]
     pub scale: Option<ScaleMode>,
 
-    /// Whether to cap the framerate to the video's framerate
-    #[clap(short, long, default_value = "true")]
-    pub cap_framerate: Option<bool>,
+    /// Allow the framerate to exceed the video's framerate
+    #[clap(short, long, action)]
+    pub remove_fps_cap: bool,
 
     /// The hardware acceleration device to use
     #[clap(long, default_value = "none")]

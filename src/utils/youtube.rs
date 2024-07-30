@@ -1,6 +1,6 @@
 use youtube_dl::YoutubeDl;
 
-pub fn get_youtube_video_from_url(url: &str) -> anyhow::Result<(String, u64, String)> {
+pub fn get_youtube_video_from_url(url: &str) -> anyhow::Result<(String, u64, String, bool)> {
     let output = YoutubeDl::new(url)
         .socket_timeout("15")
         .run()?
@@ -12,6 +12,8 @@ pub fn get_youtube_video_from_url(url: &str) -> anyhow::Result<(String, u64, Str
         .title
         .ok_or("No title found")
         .map_err(|e| anyhow::anyhow!(e))?;
+
+    let live = output.is_live.unwrap_or(false);
 
     let output = output
         .formats
@@ -28,5 +30,5 @@ pub fn get_youtube_video_from_url(url: &str) -> anyhow::Result<(String, u64, Str
         .ok_or("No video URL found")
         .map_err(|e| anyhow::anyhow!(e))?;
 
-    Ok((video_url, output.fps.unwrap_or(30.0) as u64, title))
+    Ok((video_url, output.fps.unwrap_or(30.0) as u64, title, live))
 }

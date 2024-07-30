@@ -1,4 +1,5 @@
 use clap::Parser;
+use crossterm::event::{poll, read, Event, KeyCode, KeyModifiers};
 use crossterm::{
     cursor::{self, MoveTo},
     execute,
@@ -6,7 +7,10 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 use std::io::{self, Write};
+use std::sync::Arc;
 use std::{process::exit, time::Duration};
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::RwLock;
 use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedReceiver},
     time::Instant,
@@ -39,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     let mut video = Video::from_args(args);
 
     // Fetch video frames and frames per second
-    let mut frames_recv = video.fetch_video(video.hw_accel.clone()).await.unwrap();
+    let (mut frames_recv, seek_tx) = video.fetch_video(video.hw_accel.clone()).await.unwrap();
     let (render_tx, render_recv) = unbounded_channel::<(Frame, DurationType)>();
 
     let mut stdout = io::stdout();
@@ -51,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(handle_signal_input());
 
     // Spawn a task to render video frames
-    let handle_render = tokio::spawn(handle_render(video, render_recv));
+    let handle_render = tokio::spawn(handle_render(video, seek_tx, render_recv));
 
     // Forward frames to the render task
     while let Some(data) = frames_recv.recv().await {
@@ -64,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn end() {
+    terminal::disable_raw_mode().unwrap();
     print!(
         "{}{}{}{}",
         cursor::Show,
@@ -83,16 +88,70 @@ async fn handle_signal_input() {
 // Render video frames to the terminal
 async fn handle_render(
     mut video: Video,
+    seek_tx: UnboundedSender<i64>,
     mut render_recv: UnboundedReceiver<(Frame, DurationType)>,
 ) -> anyhow::Result<()> {
     let started = Instant::now();
     let std_frame_time = Duration::from_micros(1_000_000 / video.fps);
-    let mut frames_seen = 0;
+    let frames_seen = Arc::new(RwLock::new(0));
     let mut frame_times: Vec<Instant> = vec![];
 
     let mut stdout = io::stdout();
 
     let (mut last_width, mut last_height) = terminal::size()?;
+
+    terminal::enable_raw_mode()?;
+
+    let frames_seen_copy = frames_seen.clone();
+
+    tokio::spawn(async move {
+        loop {
+            let ev = read().unwrap();
+            match ev {
+                Event::Key(event) => {
+                    if event.code == KeyCode::Char('q')
+                        || (event.code == KeyCode::Char('c')
+                            && event.modifiers == KeyModifiers::CONTROL)
+                    {
+                        end();
+                    }
+
+                    if !video.live {
+                        if event.code == KeyCode::Char('l') {
+                            let mut frames_seen = frames_seen_copy.write().await;
+                            let current_time = *frames_seen as f32 / video.fps as f32;
+
+                            seek_tx
+                                .send((current_time * 1000.0 + 5000.0) as i64)
+                                .unwrap();
+
+                            // set frames_seen to new timestamp
+                            *frames_seen = ((current_time + 5.0) * (video.fps as f32)) as u64;
+                            drop(frames_seen);
+                        }
+
+                        if event.code == KeyCode::Char('k') {
+                            let mut frames_seen = frames_seen_copy.write().await;
+                            let current_time = *frames_seen as f32 / video.fps as f32;
+
+                            seek_tx
+                                .send((current_time * 1000.0 - 5000.0) as i64)
+                                .unwrap();
+
+                            *frames_seen =
+                                ((current_time - 5.0).max(0.0) * (video.fps as f32)) as u64;
+                            drop(frames_seen);
+                        }
+                    }
+
+                    // if event.code == KeyCode::Char('f') {
+                    //     video.fullscreen = !video.fullscreen;
+                    // } Doesn't work, prolly due to the spawn
+                }
+                _ => {}
+            }
+        }
+    });
 
     while let Some((frame, duration)) = render_recv.recv().await {
         let (width, height) = terminal::size()?;
@@ -103,7 +162,11 @@ async fn handle_render(
             last_height = height;
         }
 
-        frames_seen += 1;
+        let mut frames_seen_write_lock = frames_seen.write().await;
+
+        *frames_seen_write_lock += 1;
+
+        drop(frames_seen_write_lock);
 
         video.write_header(&mut stdout)?;
 
@@ -115,7 +178,7 @@ async fn handle_render(
         let sleep_duration = std_frame_time.saturating_sub(elapsed);
 
         // Wait if necessary to maintain the target FPS with a preloaded video
-        if video.cap_framerate {
+        if !video.remove_fps_cap {
             tokio::time::sleep(sleep_duration).await;
         }
 
@@ -129,7 +192,11 @@ async fn handle_render(
             frame_times = frame_times[frame_times.len() - 10..].to_vec();
         }
 
-        let current_time = frames_seen as f32 / video.fps as f32;
+        let frames_seen = frames_seen.read().await;
+
+        let current_time = *frames_seen as f32 / video.fps as f32;
+
+        drop(frames_seen);
 
         if !video.fullscreen {
             video.write_footer(
