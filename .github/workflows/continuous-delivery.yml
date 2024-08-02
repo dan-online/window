@@ -121,26 +121,28 @@ jobs:
                 path: target/${{ matrix.settings.target }}/release/window.exe
         
     upload_to_release:
-        name: Upload to Release
-        needs: binary
-        runs-on: ubuntu-24.04
-        steps:
-        - name: Download binary
-          uses: actions/download-artifact@v4
-          with:
-            name: window-ubuntu-24.04-x86_64-unknown-linux-gnu
-        
-        - name: Download Windows binary
-          uses: actions/download-artifact@v4
-          with:
-            name: window-windows-2019-x86_64-pc-windows-msvc
+      name: Upload to Release
+      needs: binary
+      permissions:
+        contents: write
+      runs-on: ubuntu-24.04
+      steps:
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: window-ubuntu-24.04-x86_64-unknown-linux-gnu
+      
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: window-windows-2019-x86_64-pc-windows-msvc
 
-        - name: Create Release
-          id: create_release
-          uses: softprops/action-gh-release@v2
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:
-            files: |
-                window
-                window.exe
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+              window
+              window.exe
