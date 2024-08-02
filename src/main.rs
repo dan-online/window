@@ -84,13 +84,15 @@ async fn main() -> anyhow::Result<()> {
 
 fn end() {
     terminal::disable_raw_mode().unwrap();
-    print!(
-        "{}{}{}{}",
+    let mut stdout = io::stdout();
+    execute!(
+        stdout,
         cursor::Show,
         style::ResetColor,
         MoveTo(0, 0),
         Clear(ClearType::All)
-    );
+    )
+    .unwrap();
     exit(0);
 }
 
