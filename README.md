@@ -25,6 +25,10 @@ Window is a terminal-based video player that allows you to watch videos directly
 
 ![window](assets/demo.gif)
 
+> Demo of Window playing a YouTube video in block mode, and then halfway in ASCII mode
+
+> Note: I use Alacritty as my terminal application which is very performant, your mileage may vary depending on how optimized your terminal is for this kind of application
+
 ## Features
 
 - **Variety of Video Sources**
