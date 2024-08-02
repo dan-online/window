@@ -10,6 +10,7 @@ pub enum CharacterMode {
     Dots,
     Ascii,
     AsciiExtended,
+    AsciiWindows,
     Numbers,
     Blocks,
 }

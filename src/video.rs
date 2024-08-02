@@ -246,6 +246,14 @@ impl Video {
                     .map(|x| x as u32)
                     .collect()
             }
+            // Better for windows apparently
+            CharacterMode::AsciiWindows => {
+                "@&%QWNM0gB$#DR8mHXKAUbGOpV4d9h6PkqwSE2]ayjxY5Zoen[ult13If}C{iF|(7J)vTLs?z/*cr!+<>;=^,_:'-.` "
+                    .to_string()
+                    .chars()
+                    .map(|x| x as u32)
+                    .collect()
+            }
             CharacterMode::Numbers => b"1742350698".to_vec().iter().map(|&x| x as u32).collect(),
             // ░▒
             CharacterMode::Blocks => [0x2591, 0x2592].to_vec(),
@@ -299,7 +307,8 @@ impl Video {
                         CharacterMode::Ascii
                         | CharacterMode::Numbers
                         | CharacterMode::Blocks
-                        | CharacterMode::AsciiExtended => Color::Rgb {
+                        | CharacterMode::AsciiExtended
+                        | CharacterMode::AsciiWindows => Color::Rgb {
                             r: 128,
                             g: 128,
                             b: 128,

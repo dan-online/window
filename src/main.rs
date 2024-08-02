@@ -101,11 +101,9 @@ async fn handle_signal_input() {
 }
 
 // Drain the receiver channels
-async fn drain_receiver(
-    recv: &mut UnboundedReceiver<(Frame, DurationType)>
-) {
+// A bit buggy though
+async fn drain_receiver(recv: &mut UnboundedReceiver<(Frame, DurationType)>) {
     while recv.try_recv().is_ok() {}
-    println!("Drained!");
 }
 
 // Render video frames to the terminal
