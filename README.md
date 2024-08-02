@@ -1,7 +1,6 @@
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
 
 <br />
 <div align="center">
@@ -116,5 +115,3 @@ Project Link: [https://github.com/dan-online/window](https://github.com/dan-onli
 [stars-url]: https://github.com/dan-online/window/stargazers
 [issues-shield]: https://img.shields.io/github/issues/dan-online/window.svg?style=for-the-badge
 [issues-url]: https://github.com/dan-online/window/issues
-[license-shield]: https://img.shields.io/github/license/dan-online/window.svg?style=for-the-badge
-[license-url]: https://github.com/dan-online/window/blob/master/LICENSE.txt
