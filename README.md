@@ -26,7 +26,7 @@ Window is a terminal-based video player that allows you to watch videos directly
 
 ![window](assets/demo.gif)
 
-### Features
+## Features
 
 - **Variety of Video Sources**
     - **Local File**: Seamlessly play videos stored on your local machine.
@@ -40,16 +40,17 @@ Window is a terminal-based video player that allows you to watch videos directly
     - **Enhanced Performance**: Leverages hardware acceleration to optimize decoding of video streams, reducing CPU usage and providing smoother playback.
     - **Multi-Platform Support**: Compatible with a wide range of hardware, ensuring optimal performance across different devices and operating systems.
 
-
 ## TODO
 
 - [ ] Error handling
 - [x] Full screen mode
-- [ ] Resizing
+- [ ] Resizing (Needs a new decoder stream)
 - [ ] Tests
-- [ ] Audio???
-- [ ] Subtitles???
+- [ ] Audio??? (Either chopped into length of frame or just kept in sync)
+- [ ] Subtitles??? (Perhaps as text or just baked in)
 - [ ] Better color accuracy
+- [ ] Add inputs like pausing/skipping
+- [ ] Statically linked binaries
 
 ## Getting Started
 
