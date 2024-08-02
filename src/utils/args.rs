@@ -80,8 +80,8 @@ impl HardwareAcceleration {
 #[derive(Parser, Debug)]
 #[command(version, author, about, long_about = None)]
 pub struct Args {
-    /// The URL of the video to play
-    pub url: String,
+    /// The video file location, url, or youtube link
+    pub input: String,
 
     /// Distance from the previous pixel to replace
     /// 0 will update every pixel at the cost of performance

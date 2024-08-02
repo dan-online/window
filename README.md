@@ -53,10 +53,6 @@ Window is a terminal-based video player that allows you to watch videos directly
 
 ## Getting Started
 
-> **Note:** Window requires ffmpeg libraries to be installed, for more information check [here](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building#dependencies)
-
-> **Note:** Window requires yt-dlp installed in order to use the youtube feature. You can install it by running `pip install yt-dlp`.
-
 ### Docker
 
 ```bash
@@ -64,23 +60,27 @@ $ docker run -it --rm danonline/window:latest --help
 $ docker run -it --rm danonline/window:latest "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-### Bin
+### Bin (WIP)
+
+> **Note:** Window requires ffmpeg libraries to be installed, for more information check [here](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building#dependencies)
+
+> **Note:** Window requires yt-dlp installed in order to use the youtube feature. You can install it by running `pip install yt-dlp`.
 
 Check out the [releases](https://github.com/dan-online/window/releases) page for the latest binaries.
 
 ## Usage
 
 ```xsd
-Usage: window [OPTIONS] <URL>
+Usage: window [OPTIONS] <INPUT>
 
 Arguments:
-  <URL>  The URL of the video to play
+  <INPUT>  The video file location, url, or youtube link
 
 Options:
   -p, --pixel-clear-distance <PIXEL_CLEAR_DISTANCE>
           Distance from the previous pixel to replace 0 will update every pixel at the cost of performance [default: 2]
   -m, --mode <MODE>
-          The character mode to use [default: block] [possible values: block, dots, ascii, ascii-extended, numbers, blocks]
+          The character mode to use [default: block] [possible values: block, dots, ascii, ascii-extended, ascii-windows, numbers, blocks]
   -s, --scale <SCALE>
           The scale mode to use [default: fit] [possible values: fit, stretch]
   -r, --remove-fps-cap

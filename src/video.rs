@@ -70,7 +70,7 @@ impl Video {
         Self {
             title: "".to_string(),
             fps: 0,
-            url: args.url,
+            url: args.input,
             frame_times: vec![],
             last_frame: None,
             fullscreen: args.fullscreen,
