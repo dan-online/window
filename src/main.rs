@@ -43,8 +43,10 @@ async fn main() -> anyhow::Result<()> {
     let mut video = Video::from_args(args);
 
     // Fetch video frames and frames per second
-    let (mut frames_recv, seek_tx) = video.fetch_video(video.hw_accel.clone()).await.unwrap();
+    let (frames_recv, seek_tx) = video.fetch_video(video.hw_accel.clone()).await.unwrap();
     let (render_tx, render_recv) = unbounded_channel::<(Frame, DurationType)>();
+
+    let frames_recv = Arc::new(RwLock::new(frames_recv));
 
     let mut stdout = io::stdout();
 
@@ -55,10 +57,23 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(handle_signal_input());
 
     // Spawn a task to render video frames
-    let handle_render = tokio::spawn(handle_render(video, seek_tx, render_recv));
+    let handle_render = tokio::spawn(handle_render(
+        video,
+        seek_tx,
+        render_recv,
+        frames_recv.clone(),
+    ));
 
     // Forward frames to the render task
-    while let Some(data) = frames_recv.recv().await {
+    loop {
+        let mut frames_recv = frames_recv.write().await;
+        let data = match frames_recv.recv().await {
+            Some(data) => data,
+            None => break,
+        };
+
+        drop(frames_recv);
+
         render_tx.send(data).unwrap();
     }
 
@@ -85,16 +100,26 @@ async fn handle_signal_input() {
     end();
 }
 
+// Drain the receiver channels
+async fn drain_receiver(
+    recv: &mut UnboundedReceiver<(Frame, DurationType)>
+) {
+    while recv.try_recv().is_ok() {}
+    println!("Drained!");
+}
+
 // Render video frames to the terminal
 async fn handle_render(
     mut video: Video,
     seek_tx: UnboundedSender<i64>,
-    mut render_recv: UnboundedReceiver<(Frame, DurationType)>,
+    render_recv: UnboundedReceiver<(Frame, DurationType)>,
+    frames_recv: Arc<RwLock<UnboundedReceiver<(Frame, DurationType)>>>,
 ) -> anyhow::Result<()> {
     let started = Instant::now();
     let std_frame_time = Duration::from_micros(1_000_000 / video.fps);
     let frames_seen = Arc::new(RwLock::new(0));
     let mut frame_times: Vec<Instant> = vec![];
+    let render_recv = Arc::new(RwLock::new(render_recv));
 
     let mut stdout = io::stdout();
 
@@ -103,6 +128,7 @@ async fn handle_render(
     terminal::enable_raw_mode()?;
 
     let frames_seen_copy = frames_seen.clone();
+    let render_revc_copy = render_recv.clone();
 
     tokio::spawn(async move {
         loop {
@@ -124,8 +150,18 @@ async fn handle_render(
                             .send((current_time * 1000.0 + 5000.0) as i64)
                             .unwrap();
 
-                        // set frames_seen to new timestamp
-                        *frames_seen = ((current_time + 5.0) * (video.fps as f32)) as u64;
+                        let mut render_recv = render_revc_copy.write().await;
+                        let mut frames_recv = frames_recv.write().await;
+
+                        let new_frames = ((current_time + 5.0) * (video.fps as f32)) as u64;
+
+                        *frames_seen = new_frames;
+
+                        drain_receiver(&mut render_recv).await;
+                        drain_receiver(&mut frames_recv).await;
+
+                        drop(render_recv);
+                        drop(frames_recv);
                         drop(frames_seen);
                     }
 
@@ -137,19 +173,36 @@ async fn handle_render(
                             .send((current_time * 1000.0 - 5000.0) as i64)
                             .unwrap();
 
-                        *frames_seen = ((current_time - 5.0).max(0.0) * (video.fps as f32)) as u64;
+                        let mut frames_recv = frames_recv.write().await;
+                        let mut render_recv = render_revc_copy.write().await;
+
+                        let new_frames = ((current_time - 5.0) * (video.fps as f32)) as u64;
+
+                        *frames_seen = new_frames;
+
+                        drain_receiver(&mut render_recv).await;
+                        drain_receiver(&mut frames_recv).await;
+
+                        drop(render_recv);
+                        drop(frames_recv);
                         drop(frames_seen);
                     }
                 }
-
-                // if event.code == KeyCode::Char('f') {
-                //     video.fullscreen = !video.fullscreen;
-                // } Doesn't work, prolly due to the spawn
             }
         }
     });
 
-    while let Some((frame, duration)) = render_recv.recv().await {
+    // while let Some((frame, duration)) = render_recv.recv().await {
+    loop {
+        let mut render_recv = render_recv.write().await;
+
+        let (frame, duration) = match render_recv.recv().await {
+            Some(data) => data,
+            None => break,
+        };
+
+        drop(render_recv);
+
         let (width, height) = terminal::size()?;
 
         if width != last_width || height != last_height {
