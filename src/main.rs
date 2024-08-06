@@ -6,7 +6,7 @@ use crossterm::{
     style::{self},
     terminal::{self, Clear, ClearType},
 };
-use std::io::{self, Write};
+use std::io::{self, BufWriter, Write};
 use std::sync::Arc;
 use std::{process::exit, time::Duration};
 use tokio::sync::mpsc::UnboundedSender;
@@ -121,7 +121,7 @@ async fn handle_render(
     let mut frame_times: Vec<Instant> = vec![];
     let render_recv = Arc::new(RwLock::new(render_recv));
 
-    let mut stdout = io::stdout();
+    let mut stdout = BufWriter::new(io::stdout());
 
     let (mut last_width, mut last_height) = terminal::size()?;
 

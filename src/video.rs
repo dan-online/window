@@ -85,7 +85,7 @@ impl Video {
         }
     }
 
-    pub fn write_header(&self, stdout: &mut io::Stdout) -> anyhow::Result<()> {
+    pub fn write_header(&self, stdout: &mut io::BufWriter<io::Stdout>) -> anyhow::Result<()> {
         let (cols, rows) = terminal::size().unwrap();
         let (vid_cols, vid_rows) = self.render_size;
 
@@ -207,7 +207,11 @@ impl Video {
         Ok((frame_rx, seek_tx))
     }
 
-    pub fn write_frame(&mut self, frame: &Frame, stdout: &mut io::Stdout) -> anyhow::Result<()> {
+    pub fn write_frame(
+        &mut self,
+        frame: &Frame,
+        stdout: &mut io::BufWriter<io::Stdout>,
+    ) -> anyhow::Result<()> {
         let frame_height = frame.shape()[0];
         let frame_width = frame.shape()[1];
 
@@ -344,7 +348,7 @@ impl Video {
 
     pub fn write_footer(
         &self,
-        stdout: &mut io::Stdout,
+        stdout: &mut io::BufWriter<io::Stdout>,
         render_fps: f64,
         current_time: f32,
         duration: DurationType,
