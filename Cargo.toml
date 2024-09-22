@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 youtube_dl = "0.10.0"                                  # For fetching YouTube video
-video-rs = { version = "0.8", features = ["ndarray"] } # For ffmpeg decoding
+video-rs = { version = "0.9", features = ["ndarray"] } # For ffmpeg decoding
 image = "0.25.1"                                       # For image processing
 tokio = { version = "1.38.0", features = ["full"] }
 ndarray = "0.15.6"
