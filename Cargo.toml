@@ -8,7 +8,7 @@ youtube_dl = "0.10.0"                                  # For fetching YouTube vi
 video-rs = { version = "0.9", features = ["ndarray"] } # For ffmpeg decoding
 image = "0.25.1"                                       # For image processing
 tokio = { version = "1.38.0", features = ["full"] }
-ndarray = "0.15.6"
+ndarray = "0.16.1"
 anyhow = "1.0.86"
 clap = { version = "4.5.11", features = ["derive"] }
 serde = "1.0.204"
