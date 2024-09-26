@@ -48,9 +48,7 @@ pub enum HardwareAcceleration {
     /// OpenCL
     OpenCl,
     /// MediaCodec
-    MeiaCodec,
-    /// Vulkan
-    Vulkan,
+    MediaCodec,
     /// Direct3D 12 Video Acceleration
     D3D12Va,
 }
@@ -70,8 +68,7 @@ impl HardwareAcceleration {
             HardwareAcceleration::D3D11Va => Some(HardwareAccelerationDeviceType::D3D11Va),
             HardwareAcceleration::Drm => Some(HardwareAccelerationDeviceType::Drm),
             HardwareAcceleration::OpenCl => Some(HardwareAccelerationDeviceType::OpenCl),
-            HardwareAcceleration::MeiaCodec => Some(HardwareAccelerationDeviceType::MeiaCodec),
-            HardwareAcceleration::Vulkan => Some(HardwareAccelerationDeviceType::Vulkan),
+            HardwareAcceleration::MediaCodec => Some(HardwareAccelerationDeviceType::MediaCodec),
             HardwareAcceleration::D3D12Va => Some(HardwareAccelerationDeviceType::D3D12Va),
         }
     }
