@@ -128,12 +128,12 @@ jobs:
       runs-on: ubuntu-24.04
       steps:
       - name: Download binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: window-ubuntu-24.04-x86_64-unknown-linux-gnu
       
       - name: Download Windows binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: window-windows-2019-x86_64-pc-windows-msvc
 
