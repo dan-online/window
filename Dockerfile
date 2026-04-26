@@ -1,5 +1,5 @@
 # Run application
-FROM ubuntu:noble
+FROM ubuntu:resolute
 
 RUN apt update -y && apt install -y python3 python3-pip libssl-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libpostproc-dev libswresample-dev libswscale-dev --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
