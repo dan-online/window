@@ -84,7 +84,7 @@ jobs:
 
             - name: vcpkg build
               if: matrix.settings.os == 'windows-2019'
-              uses: johnwason/vcpkg-action@v7
+              uses: johnwason/vcpkg-action@v8
               id: vcpkg
               with:
                 pkgs: ffmpeg
