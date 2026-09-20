@@ -125,7 +125,7 @@ jobs:
       needs: binary
       permissions:
         contents: write
-      runs-on: ubuntu-24.04
+      runs-on: ubuntu-26.04
       steps:
       - name: Download binary
         uses: actions/download-artifact@v8
